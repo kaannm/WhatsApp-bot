@@ -11,7 +11,6 @@ RUN npm ci --only=production
 
 # Uygulama kodlarını kopyala
 COPY src/ ./src/
-COPY firebase-key.json ./
 
 # Logs klasörü oluştur
 RUN mkdir -p logs
