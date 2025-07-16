@@ -270,4 +270,4 @@ Sorunlarınız için:
 ### v1.0.0
 - ✅ Temel webhook işleme
 - ✅ Firebase entegrasyonu
-- ✅ Basit validasyon 
+- ✅ Basit validasyon # Force Railway redeploy - Wed Jul 16 15:20:40 +03 2025
