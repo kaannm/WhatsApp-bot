@@ -130,17 +130,15 @@ app.get('/health', (req, res) => {
 
 // WhatsApp webhook verification
 app.get('/webhook', (req, res) => {
+  const VERIFY_TOKEN = 'whatsapp-bot-2024-secret-token';
+
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'whatsapp-bot-2024-secret-token';
-
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log("Webhook doğrulandı.");
     res.status(200).send(challenge);
   } else {
-    console.log("Webhook doğrulama başarısız:", { mode, token, expectedToken: VERIFY_TOKEN });
     res.sendStatus(403);
   }
 });
