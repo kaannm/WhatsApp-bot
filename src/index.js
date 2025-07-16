@@ -113,19 +113,11 @@ app.use((error, req, res, next) => {
 // Health check endpoint
 app.get('/health', async (req, res) => {
   try {
-    const redisHealth = await redisService.healthCheck();
-    const sessionCount = await redisService.getSessionCount();
-    const queueStatus = await queueService.getQueueStatus();
-    
     res.json({ 
       status: 'OK', 
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      redis: {
-        status: redisHealth ? 'connected' : 'disconnected',
-        sessionCount: sessionCount
-      },
-      queues: queueStatus
+      message: 'Bot çalışıyor'
     });
   } catch (error) {
     res.status(500).json({ 
