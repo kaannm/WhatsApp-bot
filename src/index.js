@@ -110,22 +110,22 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Test endpoint
+app.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Test endpoint çalışıyor',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check endpoint
-app.get('/health', async (req, res) => {
-  try {
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      message: 'Bot çalışıyor'
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: 'ERROR', 
-      timestamp: new Date().toISOString(),
-      error: error.message
-    });
-  }
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    message: 'Bot çalışıyor'
+  });
 });
 
 // WhatsApp webhook verification
@@ -522,12 +522,19 @@ async function handleAIPhotoMode(req, res, from, session, incomingMessage, image
 }
 
 const PORT = config.server.port;
-app.listen(PORT, () => {
-  logger.info(`Bot sunucusu ${PORT} portunda çalışıyor`, {
-    environment: config.server.nodeEnv,
-    timestamp: new Date().toISOString()
+
+// Uygulama başlatma
+try {
+  app.listen(PORT, () => {
+    logger.info(`Bot sunucusu ${PORT} portunda çalışıyor`, {
+      environment: config.server.nodeEnv,
+      timestamp: new Date().toISOString()
+    });
   });
-});
+} catch (error) {
+  logger.error('Uygulama başlatma hatası:', error);
+  process.exit(1);
+}
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
