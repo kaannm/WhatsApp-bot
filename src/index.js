@@ -99,28 +99,44 @@ async function sendWhatsAppMessage(to, message) {
 
 // Kayıt formu işleme
 async function handleRegistration(from, messageText) {
-  const session = userSessions.get(from) || { step: 0, data: {} };
+  console.log(`handleRegistration çağrıldı: ${from}, mesaj: ${messageText}`);
   
-  switch (session.step) {
+  const session = userSessions.get(from);
+  console.log(`Mevcut session:`, session);
+  
+  if (!session) {
+    console.log('Session bulunamadı, yeni session oluşturuluyor...');
+    userSessions.set(from, { step: 0, data: {} });
+  }
+  
+  const currentSession = userSessions.get(from);
+  console.log(`İşlenecek session:`, currentSession);
+  
+  switch (currentSession.step) {
     case 0: // İsim
-      session.data.name = messageText;
-      session.step = 1;
-      userSessions.set(from, session);
+      console.log('Adım 0: İsim alınıyor');
+      currentSession.data.name = messageText;
+      currentSession.step = 1;
+      userSessions.set(from, currentSession);
+      console.log(`Session güncellendi:`, currentSession);
       return "Adınızı aldım! Şimdi telefon numaranızı gönderin (örn: +90 555 123 4567):";
       
     case 1: // Telefon
-      session.data.phone = messageText;
-      session.step = 2;
-      userSessions.set(from, session);
+      console.log('Adım 1: Telefon alınıyor');
+      currentSession.data.phone = messageText;
+      currentSession.step = 2;
+      userSessions.set(from, currentSession);
+      console.log(`Session güncellendi:`, currentSession);
       return "Telefon numaranızı aldım! Şimdi email adresinizi gönderin:";
       
     case 2: // Email
-      session.data.email = messageText;
+      console.log('Adım 2: Email alınıyor');
+      currentSession.data.email = messageText;
       
       try {
         // Firebase'e kaydet
         await db.collection('users').add({
-          ...session.data,
+          ...currentSession.data,
           phoneNumber: from,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           registrationDate: new Date().toISOString()
@@ -131,11 +147,15 @@ async function handleRegistration(from, messageText) {
         // Session'ı temizle
         userSessions.delete(from);
         
-        return `🎉 Kayıt tamamlandı!\n\nAd: ${session.data.name}\nTelefon: ${session.data.phone}\nEmail: ${session.data.email}\n\nTeşekkürler!`;
+        return `🎉 Kayıt tamamlandı!\n\nAd: ${currentSession.data.name}\nTelefon: ${currentSession.data.phone}\nEmail: ${currentSession.data.email}\n\nTeşekkürler!`;
       } catch (error) {
         console.error('❌ Kayıt hatası:', error);
         return "Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.";
       }
+      
+    default:
+      console.log('Bilinmeyen adım:', currentSession.step);
+      return "Bir hata oluştu. Lütfen 'kayıt' yazarak tekrar başlayın.";
   }
 }
 
@@ -167,13 +187,18 @@ app.post('/webhook', async (req, res) => {
         
         let reply = '';
         
-        // Kayıt formu kontrolü
+        // Mevcut session'ı kontrol et
         const session = userSessions.get(from);
+        console.log(`Session durumu:`, session);
+        
+        // Kayıt formu kontrolü
         if (session && session.step > 0) {
+          console.log(`Kayıt formu adımı: ${session.step}`);
           reply = await handleRegistration(from, messageText);
         } else {
           // Normal komutlar
           if (messageText.toLowerCase().includes('kayıt') || messageText.toLowerCase().includes('register')) {
+            console.log('Kayıt formu başlatılıyor...');
             userSessions.set(from, { step: 0, data: {} });
             reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:";
           } else if (messageText.toLowerCase().includes('merhaba') || messageText.toLowerCase().includes('hello')) {
