@@ -133,7 +133,7 @@ async function sendWhatsAppMessage(to, message) {
   }
 }
 
-// Kayıt formu işleme - Gelişmiş State Machine mantığı
+// Kayıt formu işleme - State Machine mantığı
 async function handleRegistration(from, messageText) {
   console.log(`🔍 handleRegistration çağrıldı: ${from}, mesaj: "${messageText}"`);
   
@@ -153,80 +153,37 @@ async function handleRegistration(from, messageText) {
   
   console.log(`🔄 İşlenecek session state: ${session.state}`);
   
-  // Özel komutlar kontrolü
-  if (messageText.toLowerCase() === 'iptal' || messageText.toLowerCase() === 'cancel') {
-    userSessions.delete(from);
-    return "❌ Kayıt iptal edildi. Tekrar kayıt olmak için 'kayıt' yazın.";
-  }
-  
-  if (messageText.toLowerCase() === 'geri' || messageText.toLowerCase() === 'back') {
-    return handleGoBack(from, session);
-  }
-  
   // State machine mantığı
   switch (session.state) {
     case REGISTRATION_STATES.WAITING_NAME:
       console.log('📝 State: WAITING_NAME - İsim alınıyor:', messageText);
-      
-      // İsim doğrulama
-      const nameError = validators.name(messageText);
-      if (nameError) {
-        return `❌ ${nameError}\n\nLütfen geçerli bir isim girin:`;
-      }
-      
-      session.data.name = messageText.trim();
+      session.data.name = messageText;
       session.state = REGISTRATION_STATES.WAITING_PHONE;
       session.timestamp = Date.now();
       userSessions.set(from, session);
       console.log(`✅ State değişti: WAITING_NAME -> WAITING_PHONE`);
-      return "✅ Adınızı aldım! Şimdi telefon numaranızı gönderin (örn: +90 555 123 4567):\n\n💡 İptal etmek için 'iptal' yazın.";
+      return "Adınızı aldım! Şimdi telefon numaranızı gönderin (örn: +90 555 123 4567):";
       
     case REGISTRATION_STATES.WAITING_PHONE:
       console.log('📞 State: WAITING_PHONE - Telefon alınıyor:', messageText);
-      
-      // Telefon doğrulama
-      const phoneError = validators.phone(messageText);
-      if (phoneError) {
-        return `❌ ${phoneError}\n\nLütfen geçerli bir telefon numarası girin:`;
-      }
-      
-      session.data.phone = messageText.trim();
+      session.data.phone = messageText;
       session.state = REGISTRATION_STATES.WAITING_EMAIL;
       session.timestamp = Date.now();
       userSessions.set(from, session);
       console.log(`✅ State değişti: WAITING_PHONE -> WAITING_EMAIL`);
-      return "✅ Telefon numaranızı aldım! Şimdi email adresinizi gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
+      return "Telefon numaranızı aldım! Şimdi email adresinizi gönderin:";
       
     case REGISTRATION_STATES.WAITING_EMAIL:
       console.log('📧 State: WAITING_EMAIL - Email alınıyor:', messageText);
-      
-      // Email doğrulama
-      const emailError = validators.email(messageText);
-      if (emailError) {
-        return `❌ ${emailError}\n\nLütfen geçerli bir email adresi girin:`;
-      }
-      
-      session.data.email = messageText.trim();
+      session.data.email = messageText;
       
       try {
-        // Kullanıcının daha önce kayıt olup olmadığını kontrol et
-        const existingUser = await db.collection('users')
-          .where('phoneNumber', '==', from)
-          .limit(1)
-          .get();
-        
-        if (!existingUser.empty) {
-          userSessions.delete(from);
-          return "⚠️ Bu WhatsApp numarası ile daha önce kayıt olmuşsunuz. Tekrar kayıt olamazsınız.";
-        }
-        
         // Firebase'e kaydet
         await db.collection('users').add({
           ...session.data,
           phoneNumber: from,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          registrationDate: new Date().toISOString(),
-          status: 'active'
+          registrationDate: new Date().toISOString()
         });
         
         console.log(`🎉 Kullanıcı kaydedildi: ${from}`);
@@ -234,59 +191,17 @@ async function handleRegistration(from, messageText) {
         // Session'ı temizle
         userSessions.delete(from);
         
-        return `🎉 Kayıt tamamlandı!\n\n📋 Bilgileriniz:\n• Ad: ${session.data.name}\n• Telefon: ${session.data.phone}\n• Email: ${session.data.email}\n\n✅ Artık bot hizmetlerimizi kullanabilirsiniz!\n\n💡 Yardım için 'yardım' yazın.`;
+        return `🎉 Kayıt tamamlandı!\n\nAd: ${session.data.name}\nTelefon: ${session.data.phone}\nEmail: ${session.data.email}\n\nTeşekkürler!`;
       } catch (error) {
         console.error('❌ Kayıt hatası:', error);
-        return "❌ Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.";
+        return "Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.";
       }
       
     default:
       console.log('❓ Bilinmeyen state:', session.state);
       // Session'ı sıfırla
       userSessions.delete(from);
-      return "❌ Bir hata oluştu. Lütfen 'kayıt' yazarak tekrar başlayın.";
-  }
-}
-
-// Geri gitme fonksiyonu
-function handleGoBack(from, session) {
-  switch (session.state) {
-    case REGISTRATION_STATES.WAITING_PHONE:
-      session.state = REGISTRATION_STATES.WAITING_NAME;
-      session.timestamp = Date.now();
-      userSessions.set(from, session);
-      return "⬅️ Geri döndünüz. Lütfen adınızı tekrar girin:";
-      
-    case REGISTRATION_STATES.WAITING_EMAIL:
-      session.state = REGISTRATION_STATES.WAITING_PHONE;
-      session.timestamp = Date.now();
-      userSessions.set(from, session);
-      return "⬅️ Geri döndünüz. Lütfen telefon numaranızı tekrar girin:";
-      
-    default:
-      return "❌ Geri dönülemez. İptal etmek için 'iptal' yazın.";
-  }
-}
-
-// Kullanıcı durumu kontrolü
-async function checkUserStatus(from) {
-  try {
-    const userDoc = await db.collection('users')
-      .where('phoneNumber', '==', from)
-      .limit(1)
-      .get();
-    
-    if (userDoc.empty) {
-      return "❌ Henüz kayıt olmamışsınız.\n\n📝 Kayıt olmak için 'kayıt' yazın.";
-    }
-    
-    const userData = userDoc.docs[0].data();
-    const registrationDate = new Date(userData.registrationDate).toLocaleDateString('tr-TR');
-    
-    return `✅ Kayıt durumunuz:\n\n📋 Bilgileriniz:\n• Ad: ${userData.name}\n• Telefon: ${userData.phone}\n• Email: ${userData.email}\n• Kayıt Tarihi: ${registrationDate}\n• Durum: ${userData.status || 'Aktif'}\n\n💡 Yardım için 'yardım' yazın.`;
-  } catch (error) {
-    console.error('❌ Kullanıcı durumu kontrol hatası:', error);
-    return "❌ Durum kontrolü sırasında hata oluştu.";
+      return "Bir hata oluştu. Lütfen 'kayıt' yazarak tekrar başlayın.";
   }
 }
 
@@ -328,29 +243,20 @@ app.post('/webhook', async (req, res) => {
           reply = await handleRegistration(from, messageText);
         } else {
           // Normal komutlar
-          const command = messageText.toLowerCase().trim();
-          
-          if (command === 'kayıt' || command === 'register') {
+          if (messageText.toLowerCase().includes('kayıt') || messageText.toLowerCase().includes('register')) {
             console.log('📝 Kayıt formu başlatılıyor...');
             userSessions.set(from, { 
               state: REGISTRATION_STATES.WAITING_NAME, 
               data: {},
               timestamp: Date.now()
             });
-            reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
-          } else if (command === 'yardım' || command === 'help') {
-            reply = `🤖 WhatsApp Bot Yardım Menüsü\n\n📋 Komutlar:\n• kayıt - Yeni kayıt ol\n• durum - Kayıt durumunuzu kontrol et\n• yardım - Bu menüyü göster\n• iptal - Aktif işlemi iptal et\n\n💡 Sorun yaşarsanız 'iptal' yazıp tekrar deneyin.`;
-          } else if (command === 'durum' || command === 'status') {
-            reply = await checkUserStatus(from);
-          } else if (command === 'merhaba' || command === 'hello' || command === 'selam') {
-            reply = '👋 Merhaba! Ben WhatsApp botunuz.\n\n📝 Kayıt olmak için "kayıt" yazın.\n💡 Yardım için "yardım" yazın.';
-          } else if (command === 'test') {
-            reply = '✅ Test mesajınız alındı! Bot çalışıyor.';
-          } else if (command === 'iptal' || command === 'cancel') {
-            userSessions.delete(from);
-            reply = "❌ Aktif işlem iptal edildi.\n\n📝 Yeni kayıt için 'kayıt' yazın.";
+            reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:";
+          } else if (messageText.toLowerCase().includes('merhaba') || messageText.toLowerCase().includes('hello')) {
+            reply = 'Merhaba! Ben WhatsApp botunuz. Nasılsınız?\n\nKayıt olmak için "kayıt" yazın.';
+          } else if (messageText.toLowerCase().includes('test')) {
+            reply = 'Test mesajınız alındı! Bot çalışıyor.';
           } else {
-            reply = `📨 Mesajınızı aldım: "${messageText}"\n\n💡 Yardım için 'yardım' yazın.\n📝 Kayıt olmak için 'kayıt' yazın.`;
+            reply = `Mesajınızı aldım: "${messageText}". Teşekkürler!\n\nKayıt olmak için "kayıt" yazın.`;
           }
         }
         

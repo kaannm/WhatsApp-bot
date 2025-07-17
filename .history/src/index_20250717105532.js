@@ -268,28 +268,6 @@ function handleGoBack(from, session) {
   }
 }
 
-// Kullanıcı durumu kontrolü
-async function checkUserStatus(from) {
-  try {
-    const userDoc = await db.collection('users')
-      .where('phoneNumber', '==', from)
-      .limit(1)
-      .get();
-    
-    if (userDoc.empty) {
-      return "❌ Henüz kayıt olmamışsınız.\n\n📝 Kayıt olmak için 'kayıt' yazın.";
-    }
-    
-    const userData = userDoc.docs[0].data();
-    const registrationDate = new Date(userData.registrationDate).toLocaleDateString('tr-TR');
-    
-    return `✅ Kayıt durumunuz:\n\n📋 Bilgileriniz:\n• Ad: ${userData.name}\n• Telefon: ${userData.phone}\n• Email: ${userData.email}\n• Kayıt Tarihi: ${registrationDate}\n• Durum: ${userData.status || 'Aktif'}\n\n💡 Yardım için 'yardım' yazın.`;
-  } catch (error) {
-    console.error('❌ Kullanıcı durumu kontrol hatası:', error);
-    return "❌ Durum kontrolü sırasında hata oluştu.";
-  }
-}
-
 // 🔁 Webhook POST (mesajları almak için)
 app.post('/webhook', async (req, res) => {
   console.log('=== WEBHOOK ALINDI ===');

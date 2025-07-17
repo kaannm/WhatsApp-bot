@@ -268,28 +268,6 @@ function handleGoBack(from, session) {
   }
 }
 
-// Kullanıcı durumu kontrolü
-async function checkUserStatus(from) {
-  try {
-    const userDoc = await db.collection('users')
-      .where('phoneNumber', '==', from)
-      .limit(1)
-      .get();
-    
-    if (userDoc.empty) {
-      return "❌ Henüz kayıt olmamışsınız.\n\n📝 Kayıt olmak için 'kayıt' yazın.";
-    }
-    
-    const userData = userDoc.docs[0].data();
-    const registrationDate = new Date(userData.registrationDate).toLocaleDateString('tr-TR');
-    
-    return `✅ Kayıt durumunuz:\n\n📋 Bilgileriniz:\n• Ad: ${userData.name}\n• Telefon: ${userData.phone}\n• Email: ${userData.email}\n• Kayıt Tarihi: ${registrationDate}\n• Durum: ${userData.status || 'Aktif'}\n\n💡 Yardım için 'yardım' yazın.`;
-  } catch (error) {
-    console.error('❌ Kullanıcı durumu kontrol hatası:', error);
-    return "❌ Durum kontrolü sırasında hata oluştu.";
-  }
-}
-
 // 🔁 Webhook POST (mesajları almak için)
 app.post('/webhook', async (req, res) => {
   console.log('=== WEBHOOK ALINDI ===');
@@ -328,29 +306,20 @@ app.post('/webhook', async (req, res) => {
           reply = await handleRegistration(from, messageText);
         } else {
           // Normal komutlar
-          const command = messageText.toLowerCase().trim();
-          
-          if (command === 'kayıt' || command === 'register') {
+          if (messageText.toLowerCase().includes('kayıt') || messageText.toLowerCase().includes('register')) {
             console.log('📝 Kayıt formu başlatılıyor...');
             userSessions.set(from, { 
               state: REGISTRATION_STATES.WAITING_NAME, 
               data: {},
               timestamp: Date.now()
             });
-            reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
-          } else if (command === 'yardım' || command === 'help') {
-            reply = `🤖 WhatsApp Bot Yardım Menüsü\n\n📋 Komutlar:\n• kayıt - Yeni kayıt ol\n• durum - Kayıt durumunuzu kontrol et\n• yardım - Bu menüyü göster\n• iptal - Aktif işlemi iptal et\n\n💡 Sorun yaşarsanız 'iptal' yazıp tekrar deneyin.`;
-          } else if (command === 'durum' || command === 'status') {
-            reply = await checkUserStatus(from);
-          } else if (command === 'merhaba' || command === 'hello' || command === 'selam') {
-            reply = '👋 Merhaba! Ben WhatsApp botunuz.\n\n📝 Kayıt olmak için "kayıt" yazın.\n💡 Yardım için "yardım" yazın.';
-          } else if (command === 'test') {
-            reply = '✅ Test mesajınız alındı! Bot çalışıyor.';
-          } else if (command === 'iptal' || command === 'cancel') {
-            userSessions.delete(from);
-            reply = "❌ Aktif işlem iptal edildi.\n\n📝 Yeni kayıt için 'kayıt' yazın.";
+            reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:";
+          } else if (messageText.toLowerCase().includes('merhaba') || messageText.toLowerCase().includes('hello')) {
+            reply = 'Merhaba! Ben WhatsApp botunuz. Nasılsınız?\n\nKayıt olmak için "kayıt" yazın.';
+          } else if (messageText.toLowerCase().includes('test')) {
+            reply = 'Test mesajınız alındı! Bot çalışıyor.';
           } else {
-            reply = `📨 Mesajınızı aldım: "${messageText}"\n\n💡 Yardım için 'yardım' yazın.\n📝 Kayıt olmak için 'kayıt' yazın.`;
+            reply = `Mesajınızı aldım: "${messageText}". Teşekkürler!\n\nKayıt olmak için "kayıt" yazın.`;
           }
         }
         
