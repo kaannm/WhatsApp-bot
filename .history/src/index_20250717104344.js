@@ -112,54 +112,46 @@ async function sendWhatsAppMessage(to, message) {
   }
 }
 
-// Kayıt formu işleme - State Machine mantığı
+// Kayıt formu işleme
 async function handleRegistration(from, messageText) {
   console.log(`🔍 handleRegistration çağrıldı: ${from}, mesaj: "${messageText}"`);
   
-  let session = userSessions.get(from);
+  const session = userSessions.get(from);
   console.log(`📋 Mevcut session:`, session);
   
-  // Session yoksa oluştur
   if (!session) {
     console.log('⚠️ Session bulunamadı, yeni session oluşturuluyor...');
-    session = { 
-      state: REGISTRATION_STATES.WAITING_NAME, 
-      data: {},
-      timestamp: Date.now()
-    };
-    userSessions.set(from, session);
+    userSessions.set(from, { step: 0, data: {} });
   }
   
-  console.log(`🔄 İşlenecek session state: ${session.state}`);
+  const currentSession = userSessions.get(from);
+  console.log(`🔄 İşlenecek session:`, currentSession);
   
-  // State machine mantığı
-  switch (session.state) {
-    case REGISTRATION_STATES.WAITING_NAME:
-      console.log('📝 State: WAITING_NAME - İsim alınıyor:', messageText);
-      session.data.name = messageText;
-      session.state = REGISTRATION_STATES.WAITING_PHONE;
-      session.timestamp = Date.now();
-      userSessions.set(from, session);
-      console.log(`✅ State değişti: WAITING_NAME -> WAITING_PHONE`);
+  switch (currentSession.step) {
+    case 0: // İsim
+      console.log('📝 Adım 0: İsim alınıyor -', messageText);
+      currentSession.data.name = messageText;
+      currentSession.step = 1;
+      userSessions.set(from, currentSession);
+      console.log(`✅ Session güncellendi (step 0->1):`, currentSession);
       return "Adınızı aldım! Şimdi telefon numaranızı gönderin (örn: +90 555 123 4567):";
       
-    case REGISTRATION_STATES.WAITING_PHONE:
-      console.log('📞 State: WAITING_PHONE - Telefon alınıyor:', messageText);
-      session.data.phone = messageText;
-      session.state = REGISTRATION_STATES.WAITING_EMAIL;
-      session.timestamp = Date.now();
-      userSessions.set(from, session);
-      console.log(`✅ State değişti: WAITING_PHONE -> WAITING_EMAIL`);
+    case 1: // Telefon
+      console.log('📞 Adım 1: Telefon alınıyor -', messageText);
+      currentSession.data.phone = messageText;
+      currentSession.step = 2;
+      userSessions.set(from, currentSession);
+      console.log(`✅ Session güncellendi (step 1->2):`, currentSession);
       return "Telefon numaranızı aldım! Şimdi email adresinizi gönderin:";
       
-    case REGISTRATION_STATES.WAITING_EMAIL:
-      console.log('📧 State: WAITING_EMAIL - Email alınıyor:', messageText);
-      session.data.email = messageText;
+    case 2: // Email
+      console.log('📧 Adım 2: Email alınıyor -', messageText);
+      currentSession.data.email = messageText;
       
       try {
         // Firebase'e kaydet
         await db.collection('users').add({
-          ...session.data,
+          ...currentSession.data,
           phoneNumber: from,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           registrationDate: new Date().toISOString()
@@ -170,16 +162,14 @@ async function handleRegistration(from, messageText) {
         // Session'ı temizle
         userSessions.delete(from);
         
-        return `🎉 Kayıt tamamlandı!\n\nAd: ${session.data.name}\nTelefon: ${session.data.phone}\nEmail: ${session.data.email}\n\nTeşekkürler!`;
+        return `🎉 Kayıt tamamlandı!\n\nAd: ${currentSession.data.name}\nTelefon: ${currentSession.data.phone}\nEmail: ${currentSession.data.email}\n\nTeşekkürler!`;
       } catch (error) {
         console.error('❌ Kayıt hatası:', error);
         return "Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.";
       }
       
     default:
-      console.log('❓ Bilinmeyen state:', session.state);
-      // Session'ı sıfırla
-      userSessions.delete(from);
+      console.log('❓ Bilinmeyen adım:', currentSession.step);
       return "Bir hata oluştu. Lütfen 'kayıt' yazarak tekrar başlayın.";
   }
 }
@@ -216,19 +206,15 @@ app.post('/webhook', async (req, res) => {
         const session = userSessions.get(from);
         console.log(`Session durumu:`, session);
         
-        // State machine kontrolü
-        if (session && session.state !== REGISTRATION_STATES.IDLE) {
-          console.log(`🔄 Kayıt formu state: ${session.state}`);
+        // Kayıt formu kontrolü
+        if (session && session.step >= 0) {
+          console.log(`Kayıt formu adımı: ${session.step}`);
           reply = await handleRegistration(from, messageText);
         } else {
           // Normal komutlar
           if (messageText.toLowerCase().includes('kayıt') || messageText.toLowerCase().includes('register')) {
-            console.log('📝 Kayıt formu başlatılıyor...');
-            userSessions.set(from, { 
-              state: REGISTRATION_STATES.WAITING_NAME, 
-              data: {},
-              timestamp: Date.now()
-            });
+            console.log('Kayıt formu başlatılıyor...');
+            userSessions.set(from, { step: 0, data: {} });
             reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:";
           } else if (messageText.toLowerCase().includes('merhaba') || messageText.toLowerCase().includes('hello')) {
             reply = 'Merhaba! Ben WhatsApp botunuz. Nasılsınız?\n\nKayıt olmak için "kayıt" yazın.';

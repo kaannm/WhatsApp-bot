@@ -216,19 +216,15 @@ app.post('/webhook', async (req, res) => {
         const session = userSessions.get(from);
         console.log(`Session durumu:`, session);
         
-        // State machine kontrolü
-        if (session && session.state !== REGISTRATION_STATES.IDLE) {
-          console.log(`🔄 Kayıt formu state: ${session.state}`);
+        // Kayıt formu kontrolü
+        if (session && session.step >= 0) {
+          console.log(`Kayıt formu adımı: ${session.step}`);
           reply = await handleRegistration(from, messageText);
         } else {
           // Normal komutlar
           if (messageText.toLowerCase().includes('kayıt') || messageText.toLowerCase().includes('register')) {
-            console.log('📝 Kayıt formu başlatılıyor...');
-            userSessions.set(from, { 
-              state: REGISTRATION_STATES.WAITING_NAME, 
-              data: {},
-              timestamp: Date.now()
-            });
+            console.log('Kayıt formu başlatılıyor...');
+            userSessions.set(from, { step: 0, data: {} });
             reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:";
           } else if (messageText.toLowerCase().includes('merhaba') || messageText.toLowerCase().includes('hello')) {
             reply = 'Merhaba! Ben WhatsApp botunuz. Nasılsınız?\n\nKayıt olmak için "kayıt" yazın.';
