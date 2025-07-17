@@ -502,7 +502,6 @@ app.post('/webhook', async (req, res) => {
               return;
             }
           }
-        }
         
         console.log(`Yanıt hazırlandı: ${reply}`);
         

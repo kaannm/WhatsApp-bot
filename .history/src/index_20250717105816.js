@@ -409,98 +409,97 @@ app.post('/webhook', async (req, res) => {
           } else {
             // Normal komutlar
             const command = messageText.toLowerCase().trim();
+          
+          if (command === 'kayıt' || command === 'register') {
+            console.log('📝 Kayıt formu başlatılıyor...');
+            userSessions.set(from, { 
+              state: REGISTRATION_STATES.WAITING_NAME, 
+              data: {},
+              timestamp: Date.now()
+            });
+            reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
+          } else if (command === 'yardım' || command === 'help') {
+            // Butonlu yardım menüsü
+            const helpButtons = [
+              {
+                type: "reply",
+                reply: {
+                  id: "register_btn",
+                  title: "📝 Kayıt Ol"
+                }
+              },
+              {
+                type: "reply", 
+                reply: {
+                  id: "status_btn",
+                  title: "📊 Durumum"
+                }
+              },
+              {
+                type: "reply",
+                reply: {
+                  id: "help_btn", 
+                  title: "❓ Yardım"
+                }
+              }
+            ];
             
-            if (command === 'kayıt' || command === 'register') {
-              console.log('📝 Kayıt formu başlatılıyor...');
-              userSessions.set(from, { 
-                state: REGISTRATION_STATES.WAITING_NAME, 
-                data: {},
-                timestamp: Date.now()
-              });
-              reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
-            } else if (command === 'yardım' || command === 'help') {
-              // Butonlu yardım menüsü
-              const helpButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply", 
-                  reply: {
-                    id: "status_btn",
-                    title: "📊 Durumum"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn", 
-                    title: "❓ Yardım"
-                  }
+            reply = "🤖 WhatsApp Bot Yardım Menüsü\n\nAşağıdaki butonlardan birini seçin:";
+            await sendWhatsAppMessage(from, reply, helpButtons);
+            return; // Burada return ediyoruz çünkü butonlu mesaj gönderdik
+            
+          } else if (command === 'durum' || command === 'status') {
+            reply = await checkUserStatus(from);
+          } else if (command === 'merhaba' || command === 'hello' || command === 'selam') {
+            // Butonlu karşılama mesajı
+            const welcomeButtons = [
+              {
+                type: "reply",
+                reply: {
+                  id: "register_btn",
+                  title: "📝 Kayıt Ol"
                 }
-              ];
-              
-              reply = "🤖 WhatsApp Bot Yardım Menüsü\n\nAşağıdaki butonlardan birini seçin:";
-              await sendWhatsAppMessage(from, reply, helpButtons);
-              return; // Burada return ediyoruz çünkü butonlu mesaj gönderdik
-              
-            } else if (command === 'durum' || command === 'status') {
-              reply = await checkUserStatus(from);
-            } else if (command === 'merhaba' || command === 'hello' || command === 'selam') {
-              // Butonlu karşılama mesajı
-              const welcomeButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn",
-                    title: "❓ Yardım"
-                  }
+              },
+              {
+                type: "reply",
+                reply: {
+                  id: "help_btn",
+                  title: "❓ Yardım"
                 }
-              ];
-              
-              reply = "👋 Merhaba! Ben WhatsApp botunuz.\n\nAşağıdaki seçeneklerden birini seçin:";
-              await sendWhatsAppMessage(from, reply, welcomeButtons);
-              return;
-              
-            } else if (command === 'test') {
-              reply = '✅ Test mesajınız alındı! Bot çalışıyor.';
-            } else if (command === 'iptal' || command === 'cancel') {
-              userSessions.delete(from);
-              reply = "❌ Aktif işlem iptal edildi.\n\n📝 Yeni kayıt için 'kayıt' yazın.";
-            } else {
-              // Bilinmeyen komut için butonlu mesaj
-              const unknownButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn",
-                    title: "❓ Yardım"
-                  }
+              }
+            ];
+            
+            reply = "👋 Merhaba! Ben WhatsApp botunuz.\n\nAşağıdaki seçeneklerden birini seçin:";
+            await sendWhatsAppMessage(from, reply, welcomeButtons);
+            return;
+            
+          } else if (command === 'test') {
+            reply = '✅ Test mesajınız alındı! Bot çalışıyor.';
+          } else if (command === 'iptal' || command === 'cancel') {
+            userSessions.delete(from);
+            reply = "❌ Aktif işlem iptal edildi.\n\n📝 Yeni kayıt için 'kayıt' yazın.";
+          } else {
+            // Bilinmeyen komut için butonlu mesaj
+            const unknownButtons = [
+              {
+                type: "reply",
+                reply: {
+                  id: "register_btn",
+                  title: "📝 Kayıt Ol"
                 }
-              ];
-              
-              reply = `📨 Mesajınızı aldım: "${messageText}"\n\nAşağıdaki seçeneklerden birini seçin:`;
-              await sendWhatsAppMessage(from, reply, unknownButtons);
-              return;
-            }
+              },
+              {
+                type: "reply",
+                reply: {
+                  id: "help_btn",
+                  title: "❓ Yardım"
+                }
+              }
+            ];
+            
+            reply = `📨 Mesajınızı aldım: "${messageText}"\n\nAşağıdaki seçeneklerden birini seçin:`;
+            await sendWhatsAppMessage(from, reply, unknownButtons);
+            return;
           }
         }
         

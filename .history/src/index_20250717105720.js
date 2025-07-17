@@ -339,168 +339,42 @@ app.post('/webhook', async (req, res) => {
         console.log(`=== MESAJ İŞLENİYOR ===`);
         console.log(`Gönderen: ${from}`);
         console.log(`Mesaj: ${messageText}`);
-        console.log(`Mesaj tipi: ${message.type}`);
         
         let reply = '';
         
-        // Buton tıklama kontrolü
-        if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
-          const buttonId = message.interactive.button_reply.id;
-          console.log(`🔘 Buton tıklandı: ${buttonId}`);
-          
-          switch (buttonId) {
-            case 'register_btn':
-              console.log('📝 Kayıt butonu tıklandı');
-              userSessions.set(from, { 
-                state: REGISTRATION_STATES.WAITING_NAME, 
-                data: {},
-                timestamp: Date.now()
-              });
-              reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
-              break;
-              
-            case 'status_btn':
-              console.log('📊 Durum butonu tıklandı');
-              reply = await checkUserStatus(from);
-              break;
-              
-            case 'help_btn':
-              console.log('❓ Yardım butonu tıklandı');
-              const helpButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply", 
-                  reply: {
-                    id: "status_btn",
-                    title: "📊 Durumum"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn", 
-                    title: "❓ Yardım"
-                  }
-                }
-              ];
-              reply = "🤖 WhatsApp Bot Yardım Menüsü\n\nAşağıdaki butonlardan birini seçin:";
-              await sendWhatsAppMessage(from, reply, helpButtons);
-              return;
-              
-            default:
-              reply = "❌ Bilinmeyen buton. Lütfen tekrar deneyin.";
-          }
+        // Mevcut session'ı kontrol et
+        const session = userSessions.get(from);
+        console.log(`Session durumu:`, session);
+        
+        // State machine kontrolü
+        if (session && session.state !== REGISTRATION_STATES.IDLE) {
+          console.log(`🔄 Kayıt formu state: ${session.state}`);
+          reply = await handleRegistration(from, messageText);
         } else {
-          // Normal text mesajları
-          // Mevcut session'ı kontrol et
-          const session = userSessions.get(from);
-          console.log(`Session durumu:`, session);
+          // Normal komutlar
+          const command = messageText.toLowerCase().trim();
           
-          // State machine kontrolü
-          if (session && session.state !== REGISTRATION_STATES.IDLE) {
-            console.log(`🔄 Kayıt formu state: ${session.state}`);
-            reply = await handleRegistration(from, messageText);
+          if (command === 'kayıt' || command === 'register') {
+            console.log('📝 Kayıt formu başlatılıyor...');
+            userSessions.set(from, { 
+              state: REGISTRATION_STATES.WAITING_NAME, 
+              data: {},
+              timestamp: Date.now()
+            });
+            reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
+          } else if (command === 'yardım' || command === 'help') {
+            reply = `🤖 WhatsApp Bot Yardım Menüsü\n\n📋 Komutlar:\n• kayıt - Yeni kayıt ol\n• durum - Kayıt durumunuzu kontrol et\n• yardım - Bu menüyü göster\n• iptal - Aktif işlemi iptal et\n\n💡 Sorun yaşarsanız 'iptal' yazıp tekrar deneyin.`;
+          } else if (command === 'durum' || command === 'status') {
+            reply = await checkUserStatus(from);
+          } else if (command === 'merhaba' || command === 'hello' || command === 'selam') {
+            reply = '👋 Merhaba! Ben WhatsApp botunuz.\n\n📝 Kayıt olmak için "kayıt" yazın.\n💡 Yardım için "yardım" yazın.';
+          } else if (command === 'test') {
+            reply = '✅ Test mesajınız alındı! Bot çalışıyor.';
+          } else if (command === 'iptal' || command === 'cancel') {
+            userSessions.delete(from);
+            reply = "❌ Aktif işlem iptal edildi.\n\n📝 Yeni kayıt için 'kayıt' yazın.";
           } else {
-            // Normal komutlar
-            const command = messageText.toLowerCase().trim();
-            
-            if (command === 'kayıt' || command === 'register') {
-              console.log('📝 Kayıt formu başlatılıyor...');
-              userSessions.set(from, { 
-                state: REGISTRATION_STATES.WAITING_NAME, 
-                data: {},
-                timestamp: Date.now()
-              });
-              reply = "📝 Kayıt formuna hoş geldiniz!\n\nLütfen adınızı gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
-            } else if (command === 'yardım' || command === 'help') {
-              // Butonlu yardım menüsü
-              const helpButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply", 
-                  reply: {
-                    id: "status_btn",
-                    title: "📊 Durumum"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn", 
-                    title: "❓ Yardım"
-                  }
-                }
-              ];
-              
-              reply = "🤖 WhatsApp Bot Yardım Menüsü\n\nAşağıdaki butonlardan birini seçin:";
-              await sendWhatsAppMessage(from, reply, helpButtons);
-              return; // Burada return ediyoruz çünkü butonlu mesaj gönderdik
-              
-            } else if (command === 'durum' || command === 'status') {
-              reply = await checkUserStatus(from);
-            } else if (command === 'merhaba' || command === 'hello' || command === 'selam') {
-              // Butonlu karşılama mesajı
-              const welcomeButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn",
-                    title: "❓ Yardım"
-                  }
-                }
-              ];
-              
-              reply = "👋 Merhaba! Ben WhatsApp botunuz.\n\nAşağıdaki seçeneklerden birini seçin:";
-              await sendWhatsAppMessage(from, reply, welcomeButtons);
-              return;
-              
-            } else if (command === 'test') {
-              reply = '✅ Test mesajınız alındı! Bot çalışıyor.';
-            } else if (command === 'iptal' || command === 'cancel') {
-              userSessions.delete(from);
-              reply = "❌ Aktif işlem iptal edildi.\n\n📝 Yeni kayıt için 'kayıt' yazın.";
-            } else {
-              // Bilinmeyen komut için butonlu mesaj
-              const unknownButtons = [
-                {
-                  type: "reply",
-                  reply: {
-                    id: "register_btn",
-                    title: "📝 Kayıt Ol"
-                  }
-                },
-                {
-                  type: "reply",
-                  reply: {
-                    id: "help_btn",
-                    title: "❓ Yardım"
-                  }
-                }
-              ];
-              
-              reply = `📨 Mesajınızı aldım: "${messageText}"\n\nAşağıdaki seçeneklerden birini seçin:`;
-              await sendWhatsAppMessage(from, reply, unknownButtons);
-              return;
-            }
+            reply = `📨 Mesajınızı aldım: "${messageText}"\n\n💡 Yardım için 'yardım' yazın.\n📝 Kayıt olmak için 'kayıt' yazın.`;
           }
         }
         
