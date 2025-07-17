@@ -52,6 +52,12 @@ const validators = {
     return null; // Geçerli
   },
   
+  phone: (phone) => {
+    const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,15}$/;
+    if (!phoneRegex.test(phone)) return "Geçerli bir telefon numarası girin (örn: +90 555 123 4567)";
+    return null;
+  },
+  
   email: (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) return "Geçerli bir email adresi girin.";
@@ -192,11 +198,27 @@ async function handleRegistration(from, messageText) {
       }
       
       session.data.name = messageText.trim();
+      session.state = REGISTRATION_STATES.WAITING_PHONE;
+      session.timestamp = Date.now();
+      userSessions.set(from, session);
+      console.log(`✅ State değişti: WAITING_NAME -> WAITING_PHONE`);
+      return "✅ Adınızı aldım! Şimdi telefon numaranızı gönderin (örn: +90 555 123 4567):\n\n💡 İptal etmek için 'iptal' yazın.";
+      
+    case REGISTRATION_STATES.WAITING_PHONE:
+      console.log('📞 State: WAITING_PHONE - Telefon alınıyor:', messageText);
+      
+      // Telefon doğrulama
+      const phoneError = validators.phone(messageText);
+      if (phoneError) {
+        return `❌ ${phoneError}\n\nLütfen geçerli bir telefon numarası girin:`;
+      }
+      
+      session.data.phone = messageText.trim();
       session.state = REGISTRATION_STATES.WAITING_EMAIL;
       session.timestamp = Date.now();
       userSessions.set(from, session);
-      console.log(`✅ State değişti: WAITING_NAME -> WAITING_EMAIL`);
-      return "✅ Adınızı aldım! Şimdi email adresinizi gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
+      console.log(`✅ State değişti: WAITING_PHONE -> WAITING_EMAIL`);
+      return "✅ Telefon numaranızı aldım! Şimdi email adresinizi gönderin:\n\n💡 İptal etmek için 'iptal' yazın.";
       
     case REGISTRATION_STATES.WAITING_EMAIL:
       console.log('📧 State: WAITING_EMAIL - Email alınıyor:', messageText);
@@ -235,7 +257,7 @@ async function handleRegistration(from, messageText) {
         // Session'ı temizle
         userSessions.delete(from);
         
-        return `🎉 Kayıt tamamlandı!\n\n📋 Bilgileriniz:\n• Ad: ${session.data.name}\n• WhatsApp: ${from}\n• Email: ${session.data.email}\n\n✅ Artık bot hizmetlerimizi kullanabilirsiniz!\n\n💡 Yardım için 'yardım' yazın.`;
+        return `🎉 Kayıt tamamlandı!\n\n📋 Bilgileriniz:\n• Ad: ${session.data.name}\n• Telefon: ${session.data.phone}\n• Email: ${session.data.email}\n\n✅ Artık bot hizmetlerimizi kullanabilirsiniz!\n\n💡 Yardım için 'yardım' yazın.`;
       } catch (error) {
         console.error('❌ Kayıt hatası:', error);
         return "❌ Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.";
@@ -252,11 +274,17 @@ async function handleRegistration(from, messageText) {
 // Geri gitme fonksiyonu
 function handleGoBack(from, session) {
   switch (session.state) {
-    case REGISTRATION_STATES.WAITING_EMAIL:
+    case REGISTRATION_STATES.WAITING_PHONE:
       session.state = REGISTRATION_STATES.WAITING_NAME;
       session.timestamp = Date.now();
       userSessions.set(from, session);
       return "⬅️ Geri döndünüz. Lütfen adınızı tekrar girin:";
+      
+    case REGISTRATION_STATES.WAITING_EMAIL:
+      session.state = REGISTRATION_STATES.WAITING_PHONE;
+      session.timestamp = Date.now();
+      userSessions.set(from, session);
+      return "⬅️ Geri döndünüz. Lütfen telefon numaranızı tekrar girin:";
       
     default:
       return "❌ Geri dönülemez. İptal etmek için 'iptal' yazın.";
@@ -278,7 +306,7 @@ async function checkUserStatus(from) {
     const userData = userDoc.docs[0].data();
     const registrationDate = new Date(userData.registrationDate).toLocaleDateString('tr-TR');
     
-    return `✅ Kayıt durumunuz:\n\n📋 Bilgileriniz:\n• Ad: ${userData.name}\n• WhatsApp: ${userData.phoneNumber}\n• Email: ${userData.email}\n• Kayıt Tarihi: ${registrationDate}\n• Durum: ${userData.status || 'Aktif'}\n\n💡 Yardım için 'yardım' yazın.`;
+    return `✅ Kayıt durumunuz:\n\n📋 Bilgileriniz:\n• Ad: ${userData.name}\n• Telefon: ${userData.phone}\n• Email: ${userData.email}\n• Kayıt Tarihi: ${registrationDate}\n• Durum: ${userData.status || 'Aktif'}\n\n💡 Yardım için 'yardım' yazın.`;
   } catch (error) {
     console.error('❌ Kullanıcı durumu kontrol hatası:', error);
     return "❌ Durum kontrolü sırasında hata oluştu.";
