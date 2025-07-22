@@ -35,7 +35,7 @@ const userStates = {};
 
 // WhatsApp Cloud API ayarları
 env = process.env;
-const WHATSAPP_TOKEN = env.WHATSAPP_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_NUMBER_ID = env.WHATSAPP_PHONE_NUMBER_ID;
 const WHATSAPP_API_URL = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
@@ -126,7 +126,7 @@ app.post('/webhook', async (req, res) => {
   } catch (e) {
     console.error(e);
     return res.sendStatus(200);
-  }
+          }
 });
 
 // Form ve fotoğraflar tamamlanınca Firestore'a kaydet, video üret ve gönder
@@ -150,8 +150,8 @@ async function handleFormAndPhotos(chatId, state) {
   } catch (e) {
     await sendWhatsappMessage(chatId, 'Bir hata oluştu, lütfen tekrar deneyin.');
     delete userStates[chatId];
+    }
   }
-}
 
 // WhatsApp Cloud API'ye metin mesajı gönder
 async function sendWhatsappMessage(to, text) {
@@ -175,9 +175,9 @@ async function sendWhatsappMedia(to, base64Data, mimeType, filename) {
       file: base64Data,
       type: mimeType,
       filename: filename,
-        },
-        {
-          headers: {
+    },
+    {
+      headers: {
         Authorization: `Bearer ${WHATSAPP_TOKEN}`,
         'Content-Type': 'application/json',
       },
