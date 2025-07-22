@@ -52,6 +52,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint (Railway ana sayfa için)
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'WhatsApp botu çalışıyor!' });
+});
+
 // ✅ Webhook Doğrulama Kısmı
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
