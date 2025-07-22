@@ -1,5 +1,5 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+// const bodyParser = require('body-parser'); // KALDIRILDI
 const axios = require('axios');
 const app = express();
 
@@ -32,7 +32,7 @@ const validators = {
   }
 };
 
-app.use(bodyParser.json());
+app.use(express.json());
 
 // Test endpoint
 app.get('/test', (req, res) => {
