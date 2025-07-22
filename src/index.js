@@ -5,7 +5,7 @@ const app = express();
 
 const VERIFY_TOKEN = "whatsapp-bot-2024-secret-token";
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+const ACCESS_TOKEN = process.env.WHATSAPP_TOKEN;
 
 // Kullanıcı session'ları (geçici)
 const userSessions = new Map();

@@ -21,7 +21,7 @@ const config = {
   whatsapp: {
     apiUrl: process.env.WHATSAPP_API_URL || 'https://waba-v2.360dialog.io',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
-    accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
+    accessToken: process.env.WHATSAPP_TOKEN,
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN
   },
   
