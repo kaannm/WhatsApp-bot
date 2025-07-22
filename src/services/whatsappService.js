@@ -175,9 +175,9 @@ async function sendWhatsappMedia(to, base64Data, mimeType, filename) {
       file: base64Data,
       type: mimeType,
       filename: filename,
-    },
-    {
-      headers: {
+        },
+        {
+          headers: {
         Authorization: `Bearer ${WHATSAPP_TOKEN}`,
         'Content-Type': 'application/json',
       },
