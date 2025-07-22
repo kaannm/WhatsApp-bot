@@ -58,21 +58,6 @@ const config = {
   }
 };
 
-// Gerekli environment variable'ları kontrol et
-const requiredEnvVars = [
-  'FIREBASE_PROJECT_ID',
-  'FIREBASE_PRIVATE_KEY',
-  'FIREBASE_CLIENT_EMAIL',
-  'WHATSAPP_PHONE_NUMBER_ID',
-  'WHATSAPP_TOKEN',
-  'WHATSAPP_VERIFY_TOKEN'
-];
-
-const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-
-if (missingVars.length > 0) {
-  console.error('Eksik environment variables:', missingVars);
-  process.exit(1);
-}
+// Gerekli environment variable kontrolü kaldırıldı
 
 module.exports = config; 
