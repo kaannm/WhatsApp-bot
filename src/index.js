@@ -256,7 +256,7 @@ app.post('/webhook', (req, res) => {
 
 // Sunucu başlat
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Sunucu http://localhost:${PORT} üzerinden çalışıyor`);
   console.log(`Phone Number ID: ${PHONE_NUMBER_ID}`);
   console.log(`Access Token: ${ACCESS_TOKEN ? 'Mevcut' : 'Eksik'}`);
