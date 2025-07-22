@@ -1,38 +1,11 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-const admin = require('firebase-admin');
 const app = express();
 
 const VERIFY_TOKEN = "whatsapp-bot-2024-secret-token";
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-
-// Firebase başlatma
-const serviceAccount = {
-  type: "service_account",
-  project_id: process.env.FIREBASE_PROJECT_ID,
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  client_email: process.env.FIREBASE_CLIENT_EMAIL,
-  client_id: process.env.FIREBASE_CLIENT_ID,
-  auth_uri: process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
-  token_uri: process.env.FIREBASE_TOKEN_URI || "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
-};
-
-// Firebase'i başlat
-try {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-  console.log('✅ Firebase başlatıldı');
-} catch (error) {
-  console.log('⚠️ Firebase başlatılamadı:', error.message);
-}
-
-const db = admin.firestore();
 
 // Kullanıcı session'ları (geçici)
 const userSessions = new Map();
@@ -211,24 +184,8 @@ async function handleRegistration(from, messageText) {
       
       try {
         // Kullanıcının daha önce kayıt olup olmadığını kontrol et
-        const existingUser = await db.collection('users')
-          .where('phoneNumber', '==', from)
-          .limit(1)
-          .get();
-        
-        if (!existingUser.empty) {
-          userSessions.delete(from);
-          return "⚠️ Bu WhatsApp numarası ile daha önce kayıt olmuşsunuz. Tekrar kayıt olamazsınız.";
-        }
-        
         // Firebase'e kaydet
-        await db.collection('users').add({
-          ...session.data,
-          phoneNumber: from,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          registrationDate: new Date().toISOString(),
-          status: 'active'
-        });
+        // Session'ı temizle
         
         console.log(`🎉 Kullanıcı kaydedildi: ${from}`);
         
@@ -266,10 +223,8 @@ function handleGoBack(from, session) {
 // Kullanıcı durumu kontrolü
 async function checkUserStatus(from) {
   try {
-    const userDoc = await db.collection('users')
-      .where('phoneNumber', '==', from)
-      .limit(1)
-      .get();
+    // Firebase'e kaydet
+    // Session'ı temizle
     
     if (userDoc.empty) {
       return "❌ Henüz kayıt olmamışsınız.\n\n📝 Kayıt olmak için 'kayıt' yazın.";
@@ -502,5 +457,5 @@ app.listen(PORT, () => {
   console.log(`Sunucu http://localhost:${PORT} üzerinden çalışıyor`);
   console.log(`Phone Number ID: ${PHONE_NUMBER_ID}`);
   console.log(`Access Token: ${ACCESS_TOKEN ? 'Mevcut' : 'Eksik'}`);
-  console.log(`Firebase: ${admin.apps.length > 0 ? 'Başlatıldı' : 'Başlatılamadı'}`);
+  // Firebase: admin.apps.length > 0 ? 'Başlatıldı' : 'Başlatılamadı'
 }); 
