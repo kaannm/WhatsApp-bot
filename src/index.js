@@ -3,7 +3,7 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 
-const VERIFY_TOKEN = "whatsapp-bot-2024-secret-token";
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.WHATSAPP_TOKEN;
 
