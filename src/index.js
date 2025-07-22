@@ -1,3 +1,11 @@
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+
 const express = require('express');
 // const bodyParser = require('body-parser'); // KALDIRILDI
 const axios = require('axios');
