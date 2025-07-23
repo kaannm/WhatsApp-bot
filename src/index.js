@@ -111,6 +111,8 @@ app.post('/webhook', express.json(), async (req, res) => {
         let validatePrompt;
         if (formFields[currentStep].key === 'name') {
           validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Eğer cevapta bir insan ismi varsa, sadece ismi döndür. Yoksa 'hayır' yaz.`;
+        } else if (formFields[currentStep].key === 'phone') {
+          validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Bu cevap geçerli bir telefon numarası mı? (ör: +905xxxxxxxxx gibi, başında +90 ile) Eğer geçerliyse sadece 'evet' de, değilse daha doğal ve samimi bir şekilde tekrar sor.`;
         } else {
           validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Bu cevap uygun mu? Eğer uygunsa sadece 'evet' de. Eğer uygun değilse, daha doğal ve samimi bir şekilde tekrar sor.`;
         }
@@ -138,6 +140,29 @@ app.post('/webhook', express.json(), async (req, res) => {
                 }
                 delete sessions[from];
               }
+            }
+          } else if (formFields[currentStep].key === 'phone') {
+            if (/^evet$/i.test(validation)) {
+              session.answers[formFields[currentStep].key] = userAnswer;
+              session.step++;
+              session.awaitingAnswer = false;
+              if (session.step === formFields.length) {
+                try {
+                  console.log('Firestore\'a kayıt deneniyor:', session.answers);
+                  await db.collection('users').add({
+                    phone: from,
+                    ...session.answers,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                  });
+                  await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+                } catch (err) {
+                  console.error('Firestore kayıt hatası:', err);
+                  await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+                }
+                delete sessions[from];
+              }
+            } else {
+              await sendWhatsappMessage(from, 'Lütfen telefon numaranızı +90 ile başlayacak şekilde yazın.');
             }
           } else {
             if (/^evet$/i.test(validation)) {
