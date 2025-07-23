@@ -36,7 +36,20 @@ const GEMINI_LIMIT = 50;
 const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 saat
 
 // Tam asistan akışı için sistem promptu
-const SYSTEM_PROMPT = `Sen bir WhatsApp form asistanısın. Kullanıcıyla samimi, doğal ve kısa cümlelerle konuş. Amacın, kullanıcıdan sırasıyla ad, soyad, e-posta, telefon ve şehir bilgisini almak. Konu dışı soruları kibarca reddet ve formu tamamlamaya yönlendir. Her adımda eksik bilgiyi iste, kullanıcıdan gelen cevabı kontrol et, uygunsa ilerle, değilse tekrar sor. Form tamamlanınca "form tamamlandı" de.`;
+const SYSTEM_PROMPT = `Sen bir WhatsApp form asistanısın. Kullanıcıyla samimi, doğal ve kısa cümlelerle konuş. Amacın, kullanıcıdan sırasıyla ad, soyad, e-posta, telefon ve şehir bilgisini almak. 
+
+ÖNEMLİ KURALLAR:
+1. Kullanıcıdan gelen cevapta yeni bilgi varsa, bunu "YENİ_BİLGİ: [alan]: [değer]" formatında belirt
+2. Eksik bilgiyi iste, mevcut bilgileri tekrar sorma
+3. Konu dışı soruları kibarca reddet ve formu tamamlamaya yönlendir
+4. Form tamamlanınca "FORM_TAMAMLANDI" yaz
+5. Her adımda sadece bir bilgi iste
+
+Örnek cevap formatı:
+"Merhaba! Adını aldım. Şimdi soyadını öğrenebilir miyim?"
+veya
+"YENİ_BİLGİ: Adı: Kaan
+Merhaba Kaan! Şimdi soyadını öğrenebilir miyim?"`;
 
 const formFields = [
   { key: 'name', label: 'Adı' },
@@ -113,8 +126,23 @@ app.post('/webhook', express.json(), async (req, res) => {
     try {
       const geminiResponse = (await askGemini(prompt)).trim();
       console.log('Gemini asistan cevabı:', geminiResponse);
-      // Eğer form tamamlandıysa, Gemini'den "form tamamlandı" veya benzeri bir sinyal bekle
-      if (/form tamamlandı|tüm bilgiler alındı|kayıt tamamlandı/i.test(geminiResponse)) {
+      
+      // YENİ_BİLGİ formatını kontrol et
+      const newInfoMatch = geminiResponse.match(/YENİ_BİLGİ:\s*([^\n]+)/i);
+      if (newInfoMatch) {
+        const newInfo = newInfoMatch[1];
+        for (const field of formFields) {
+          const regex = new RegExp(`${field.label}:\\s*([^\n]+)`, 'i');
+          const match = newInfo.match(regex);
+          if (match) {
+            session.answers[field.key] = match[1].trim();
+            console.log(`Yeni bilgi kaydedildi: ${field.key} = ${match[1].trim()}`);
+          }
+        }
+      }
+      
+      // Eğer form tamamlandıysa
+      if (/FORM_TAMAMLANDI/i.test(geminiResponse)) {
         try {
           await db.collection('users').add({
             phone: from,
@@ -128,19 +156,12 @@ app.post('/webhook', express.json(), async (req, res) => {
         }
         delete sessions[from];
       } else {
-        // Gemini cevabında yeni bilgi varsa, ayıkla ve kaydet
-        // Basit bir örnek: Eğer cevapta "Adı: ...", "Soyadı: ..." gibi bir bilgi varsa, ayıkla
-        for (const field of formFields) {
-          const regex = new RegExp(`${field.label}:\\s*([^\n]+)`, 'i');
-          const match = geminiResponse.match(regex);
-          if (match) {
-            session.answers[field.key] = match[1].trim();
-          }
-        }
-        // Kullanıcıya Gemini'nin cevabını ilet
-        await sendWhatsappMessage(from, geminiResponse);
+        // Kullanıcıya Gemini'nin cevabını ilet (YENİ_BİLGİ kısmını çıkar)
+        const cleanResponse = geminiResponse.replace(/YENİ_BİLGİ:.*$/gim, '').trim();
+        await sendWhatsappMessage(from, cleanResponse);
       }
     } catch (err) {
+      console.error('Gemini API hatası:', err);
       await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
       return res.sendStatus(200);
     }
