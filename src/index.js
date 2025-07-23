@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const axios = require('axios');
 const admin = require('firebase-admin');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Kullanıcı oturumlarını hafızada tutmak için basit bir obje
 const sessions = {};
@@ -25,6 +26,59 @@ if (!admin.apps.length) {
   console.log('Firebase Admin başlatıldı!');
 }
 const db = admin.firestore();
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const gemini = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+// Kullanıcı başına 24 saatte 50 Gemini mesaj limiti için sayaç
+const geminiLimits = {};
+const GEMINI_LIMIT = 50;
+const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 saat
+
+// Akıllı form soruları ve doğrulama promptları
+const formFields = [
+  {
+    key: 'name',
+    ask: 'Kullanıcıdan adını doğal ve samimi bir dille iste. Sadece adını yazmasını rica et.',
+    validate: 'Bu cevap bir isim mi? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+  },
+  {
+    key: 'surname',
+    ask: 'Kullanıcıdan soyadını doğal ve samimi bir dille iste. Sadece soyadını yazmasını rica et.',
+    validate: 'Bu cevap bir soyadı mı? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+  },
+  {
+    key: 'email',
+    ask: 'Kullanıcıdan e-posta adresini doğal ve samimi bir dille iste. Sadece e-posta adresini yazmasını rica et.',
+    validate: 'Bu cevap geçerli bir e-posta adresi mi? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+  },
+  {
+    key: 'phone',
+    ask: 'Kullanıcıdan telefon numarasını doğal ve samimi bir dille iste. Sadece telefon numarasını yazmasını rica et.',
+    validate: 'Bu cevap geçerli bir telefon numarası mı? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+  },
+  {
+    key: 'city',
+    ask: 'Kullanıcıdan yaşadığı şehri doğal ve samimi bir dille iste. Sadece şehir adını yazmasını rica et.',
+    validate: 'Bu cevap bir şehir adı mı? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+  }
+];
+
+async function askGemini(prompt) {
+  const model = gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const result = await model.generateContent(prompt);
+  return result.response.text().trim();
+}
+
+function canUseGemini(userId) {
+  const now = Date.now();
+  if (!geminiLimits[userId] || now - geminiLimits[userId].start > LIMIT_WINDOW_MS) {
+    geminiLimits[userId] = { count: 0, start: now };
+  }
+  if (geminiLimits[userId].count >= GEMINI_LIMIT) return false;
+  geminiLimits[userId].count++;
+  return true;
+}
 
 app.get('/', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Railway Express çalışıyor!' });
@@ -51,39 +105,54 @@ app.post('/webhook', express.json(), async (req, res) => {
 
   if (message) {
     const from = message.from;
-    // Kullanıcı için session başlat veya devam ettir
     if (!sessions[from]) {
       sessions[from] = { step: 0, answers: {} };
     }
     const session = sessions[from];
     const currentStep = session.step;
-    // Eğer ilk mesajsa, ilk soruyu gönder
-    if (currentStep === 0 && Object.keys(session.answers).length === 0) {
-      await sendWhatsappMessage(from, questions[0].text);
-      session.step++;
-    } else if (currentStep > 0 && currentStep <= questions.length) {
-      // Önceki sorunun cevabını kaydet
-      const prevQuestion = questions[currentStep - 1];
-      session.answers[prevQuestion.key] = message.text?.body || '';
-      // Sonraki soru varsa gönder
-      if (currentStep < questions.length) {
-        await sendWhatsappMessage(from, questions[currentStep].text);
-        session.step++;
+    // Gemini limit kontrolü
+    if (!canUseGemini(from)) {
+      await sendWhatsappMessage(from, 'Günlük ücretsiz sohbet hakkınız doldu, yarın tekrar deneyin.');
+      return res.sendStatus(200);
+    }
+    // Form akışı
+    if (currentStep < formFields.length) {
+      // Soru sorulacaksa
+      if (!session.awaitingAnswer) {
+        const prompt = formFields[currentStep].ask;
+        const question = await askGemini(prompt);
+        await sendWhatsappMessage(from, question);
+        session.awaitingAnswer = true;
       } else {
-        // Tüm sorular tamamlandı, Firestore'a kaydet
-        try {
-          console.log('Firestore\'a kayıt deneniyor:', session.answers);
-          await db.collection('users').add({
-            phone: from,
-            ...session.answers,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-          await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
-        } catch (err) {
-          console.error('Firestore kayıt hatası:', err); // Hata logu eklendi
-          await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+        // Kullanıcıdan gelen cevabı Gemini ile doğrula
+        const userAnswer = message.text?.body || '';
+        const validatePrompt = `${formFields[currentStep].validate}\nCevap: ${userAnswer}`;
+        const validation = await askGemini(validatePrompt);
+        // Eğer Gemini cevabı "evet" veya "uygun" gibi ise, bir sonraki soruya geç
+        if (/evet|uygun|doğru|geçerli/i.test(validation)) {
+          session.answers[formFields[currentStep].key] = userAnswer;
+          session.step++;
+          session.awaitingAnswer = false;
+          if (session.step === formFields.length) {
+            // Tüm sorular tamamlandı, Firestore'a kaydet
+            try {
+              console.log('Firestore\'a kayıt deneniyor:', session.answers);
+              await db.collection('users').add({
+                phone: from,
+                ...session.answers,
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+              await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+            } catch (err) {
+              console.error('Firestore kayıt hatası:', err);
+              await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+            }
+            delete sessions[from];
+          }
+        } else {
+          // Gemini cevabı "hayır" veya "uygun değil" gibi ise, tekrar sor
+          await sendWhatsappMessage(from, validation);
         }
-        delete sessions[from]; // Oturumu sıfırla
       }
     }
   }
