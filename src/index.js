@@ -22,6 +22,7 @@ if (!admin.apps.length) {
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL
     })
   });
+  console.log('Firebase Admin başlatıldı!');
 }
 const db = admin.firestore();
 
@@ -43,6 +44,7 @@ app.get('/webhook', (req, res) => {
 });
 
 app.post('/webhook', express.json(), async (req, res) => {
+  console.log('POST /webhook çağrıldı');
   const entry = req.body.entry?.[0];
   const changes = entry?.changes?.[0];
   const message = changes?.value?.messages?.[0];
@@ -70,6 +72,7 @@ app.post('/webhook', express.json(), async (req, res) => {
       } else {
         // Tüm sorular tamamlandı, Firestore'a kaydet
         try {
+          console.log('Firestore\'a kayıt deneniyor:', session.answers);
           await db.collection('users').add({
             phone: from,
             ...session.answers,
