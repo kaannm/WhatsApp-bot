@@ -40,27 +40,27 @@ const formFields = [
   {
     key: 'name',
     ask: 'Kullanıcıdan adını doğal ve samimi bir dille iste. Sadece adını yazmasını rica et.',
-    validate: 'Bu cevap bir isim mi? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+    validate: 'Aşağıdaki cevap bir insan ismi mi? Sadece evet veya hayır olarak cevap ver. Eğer cevap form sorusuyla alakasızsa, hayır de.'
   },
   {
     key: 'surname',
     ask: 'Kullanıcıdan soyadını doğal ve samimi bir dille iste. Sadece soyadını yazmasını rica et.',
-    validate: 'Bu cevap bir soyadı mı? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+    validate: 'Aşağıdaki cevap bir soyadı mı? Sadece evet veya hayır olarak cevap ver. Eğer cevap form sorusuyla alakasızsa, hayır de.'
   },
   {
     key: 'email',
     ask: 'Kullanıcıdan e-posta adresini doğal ve samimi bir dille iste. Sadece e-posta adresini yazmasını rica et.',
-    validate: 'Bu cevap geçerli bir e-posta adresi mi? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+    validate: 'Aşağıdaki cevap geçerli bir e-posta adresi mi? Sadece evet veya hayır olarak cevap ver. Eğer cevap form sorusuyla alakasızsa, hayır de.'
   },
   {
     key: 'phone',
     ask: 'Kullanıcıdan telefon numarasını doğal ve samimi bir dille iste. Sadece telefon numarasını yazmasını rica et.',
-    validate: 'Bu cevap geçerli bir telefon numarası mı? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+    validate: 'Aşağıdaki cevap geçerli bir telefon numarası mı? Sadece evet veya hayır olarak cevap ver. Eğer cevap form sorusuyla alakasızsa, hayır de.'
   },
   {
     key: 'city',
     ask: 'Kullanıcıdan yaşadığı şehri doğal ve samimi bir dille iste. Sadece şehir adını yazmasını rica et.',
-    validate: 'Bu cevap bir şehir adı mı? Eğer değilse, daha doğal bir şekilde tekrar sor.'
+    validate: 'Aşağıdaki cevap bir şehir adı mı? Sadece evet veya hayır olarak cevap ver. Eğer cevap form sorusuyla alakasızsa, hayır de.'
   }
 ];
 
@@ -150,8 +150,8 @@ app.post('/webhook', express.json(), async (req, res) => {
             delete sessions[from];
           }
         } else {
-          // Gemini cevabı "hayır" veya "uygun değil" gibi ise, tekrar sor
-          await sendWhatsappMessage(from, validation);
+          // Form dışı veya geçersiz cevaplarda uyarı ver
+          await sendWhatsappMessage(from, 'Lütfen formdaki soruya uygun bir cevap verin.');
         }
       }
     }
