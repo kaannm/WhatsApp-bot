@@ -77,6 +77,7 @@ app.post('/webhook', express.json(), async (req, res) => {
           });
           await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
         } catch (err) {
+          console.error('Firestore kayıt hatası:', err); // Hata logu eklendi
           await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
         }
         delete sessions[from]; // Oturumu sıfırla
