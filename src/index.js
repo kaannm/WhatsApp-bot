@@ -110,7 +110,7 @@ app.post('/webhook', express.json(), async (req, res) => {
         const userAnswer = message.text?.body || '';
         let validatePrompt;
         if (formFields[currentStep].key === 'name') {
-          validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Eğer cevapta bir insan ismi varsa, sadece ismi döndür. Yoksa 'hayır' yaz.`;
+          validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Eğer cevapta bir insan ismi varsa, sadece ismi (ör: Kaan) döndür. Eğer isim yoksa veya cevap alakasızsa, sadece 'hayır' yaz.`;
         } else if (formFields[currentStep].key === 'phone') {
           validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Bu cevap geçerli bir telefon numarası mı? (ör: +905xxxxxxxxx gibi, başında +90 ile) Eğer geçerliyse sadece 'evet' de, değilse daha doğal ve samimi bir şekilde tekrar sor.`;
         } else {
@@ -119,6 +119,7 @@ app.post('/webhook', express.json(), async (req, res) => {
         try {
           const validation = (await askGemini(validatePrompt)).trim();
           if (formFields[currentStep].key === 'name') {
+            console.log('Gemini isim ayıklama cevabı:', validation);
             if (/^hayır$/i.test(validation)) {
               await sendWhatsappMessage(from, 'Lütfen adınızı doğru şekilde yazın.');
             } else {
