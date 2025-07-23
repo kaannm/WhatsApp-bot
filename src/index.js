@@ -120,38 +120,47 @@ app.post('/webhook', express.json(), async (req, res) => {
       // Soru sorulacaksa
       if (!session.awaitingAnswer) {
         const prompt = formFields[currentStep].ask;
-        const question = await askGemini(prompt);
-        await sendWhatsappMessage(from, question);
-        session.awaitingAnswer = true;
+        try {
+          const question = await askGemini(prompt);
+          await sendWhatsappMessage(from, question);
+          session.awaitingAnswer = true;
+        } catch (err) {
+          await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+          return res.sendStatus(200);
+        }
       } else {
         // Kullanıcıdan gelen cevabı Gemini ile doğrula
         const userAnswer = message.text?.body || '';
         const validatePrompt = `${formFields[currentStep].validate}\nCevap: ${userAnswer}`;
-        const validation = await askGemini(validatePrompt);
-        // Eğer Gemini cevabı "evet" veya "uygun" gibi ise, bir sonraki soruya geç
-        if (/evet|uygun|doğru|geçerli/i.test(validation)) {
-          session.answers[formFields[currentStep].key] = userAnswer;
-          session.step++;
-          session.awaitingAnswer = false;
-          if (session.step === formFields.length) {
-            // Tüm sorular tamamlandı, Firestore'a kaydet
-            try {
-              console.log('Firestore\'a kayıt deneniyor:', session.answers);
-              await db.collection('users').add({
-                phone: from,
-                ...session.answers,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-              });
-              await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
-            } catch (err) {
-              console.error('Firestore kayıt hatası:', err);
-              await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+        try {
+          const validation = await askGemini(validatePrompt);
+          if (/evet|uygun|doğru|geçerli/i.test(validation)) {
+            session.answers[formFields[currentStep].key] = userAnswer;
+            session.step++;
+            session.awaitingAnswer = false;
+            if (session.step === formFields.length) {
+              // Tüm sorular tamamlandı, Firestore'a kaydet
+              try {
+                console.log('Firestore\'a kayıt deneniyor:', session.answers);
+                await db.collection('users').add({
+                  phone: from,
+                  ...session.answers,
+                  createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+              } catch (err) {
+                console.error('Firestore kayıt hatası:', err);
+                await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+              }
+              delete sessions[from];
             }
-            delete sessions[from];
+          } else {
+            // Form dışı veya geçersiz cevaplarda uyarı ver
+            await sendWhatsappMessage(from, 'Lütfen formdaki soruya uygun bir cevap verin.');
           }
-        } else {
-          // Form dışı veya geçersiz cevaplarda uyarı ver
-          await sendWhatsappMessage(from, 'Lütfen formdaki soruya uygun bir cevap verin.');
+        } catch (err) {
+          await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+          return res.sendStatus(200);
         }
       }
     }
