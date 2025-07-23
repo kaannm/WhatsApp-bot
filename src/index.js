@@ -35,14 +35,26 @@ const geminiLimits = {};
 const GEMINI_LIMIT = 50;
 const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 saat
 
-// Akıllı form soruları ve doğrulama promptları
+// Tam asistan akışı için sistem promptu
+const SYSTEM_PROMPT = `Sen bir WhatsApp form asistanısın. Kullanıcıyla samimi, doğal ve kısa cümlelerle konuş. Amacın, kullanıcıdan sırasıyla ad, soyad, e-posta, telefon ve şehir bilgisini almak. Konu dışı soruları kibarca reddet ve formu tamamlamaya yönlendir. Her adımda eksik bilgiyi iste, kullanıcıdan gelen cevabı kontrol et, uygunsa ilerle, değilse tekrar sor. Form tamamlanınca "form tamamlandı" de.`;
+
 const formFields = [
-  { key: 'name', ask: 'Kullanıcıdan adını doğal ve samimi bir dille iste.' },
-  { key: 'surname', ask: 'Kullanıcıdan soyadını doğal ve samimi bir dille iste.' },
-  { key: 'email', ask: 'Kullanıcıdan e-posta adresini doğal ve samimi bir dille iste.' },
-  { key: 'phone', ask: 'Kullanıcıdan telefon numarasını doğal ve samimi bir dille iste.' },
-  { key: 'city', ask: 'Kullanıcıdan yaşadığı şehri doğal ve samimi bir dille iste.' }
+  { key: 'name', label: 'Adı' },
+  { key: 'surname', label: 'Soyadı' },
+  { key: 'email', label: 'E-posta' },
+  { key: 'phone', label: 'Telefon' },
+  { key: 'city', label: 'Şehir' }
 ];
+
+function getFormState(session) {
+  let state = '';
+  for (const field of formFields) {
+    if (session.answers[field.key]) {
+      state += `${field.label}: ${session.answers[field.key]}\n`;
+    }
+  }
+  return state.trim();
+}
 
 async function askGemini(prompt) {
   const model = gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -86,114 +98,51 @@ app.post('/webhook', express.json(), async (req, res) => {
   if (message) {
     const from = message.from;
     if (!sessions[from]) {
-      sessions[from] = { step: 0, answers: {}, awaitingAnswer: false, lastQuestion: '' };
+      sessions[from] = { answers: {}, awaitingAnswer: false };
     }
     const session = sessions[from];
-    const currentStep = session.step;
     if (!canUseGemini(from)) {
       await sendWhatsappMessage(from, 'Günlük ücretsiz sohbet hakkınız doldu, yarın tekrar deneyin.');
       return res.sendStatus(200);
     }
-    if (currentStep < formFields.length) {
-      if (!session.awaitingAnswer) {
+    // Kullanıcıdan gelen cevabı ve formun mevcut durumunu Gemini'ye ilet
+    let userInput = message.text?.body || '';
+    let formState = getFormState(session);
+    let nextField = formFields.find(f => !session.answers[f.key]);
+    let prompt = `${SYSTEM_PROMPT}\n\nŞu ana kadar alınan bilgiler:\n${formState || 'Henüz bilgi yok.'}\n\nKullanıcıdan beklenen bilgi: ${nextField ? nextField.label : 'YOK'}\nKullanıcı cevabı: ${userInput}`;
+    try {
+      const geminiResponse = (await askGemini(prompt)).trim();
+      console.log('Gemini asistan cevabı:', geminiResponse);
+      // Eğer form tamamlandıysa, Gemini'den "form tamamlandı" veya benzeri bir sinyal bekle
+      if (/form tamamlandı|tüm bilgiler alındı|kayıt tamamlandı/i.test(geminiResponse)) {
         try {
-          const prompt = formFields[currentStep].ask;
-          const question = await askGemini(prompt);
-          await sendWhatsappMessage(from, question);
-          session.awaitingAnswer = true;
-          session.lastQuestion = question;
+          await db.collection('users').add({
+            phone: from,
+            ...session.answers,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
         } catch (err) {
-          await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
-          return res.sendStatus(200);
+          console.error('Firestore kayıt hatası:', err);
+          await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
         }
+        delete sessions[from];
       } else {
-        const userAnswer = message.text?.body || '';
-        let validatePrompt;
-        if (formFields[currentStep].key === 'name') {
-          validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Eğer cevapta bir insan ismi varsa, sadece ismi (ör: Kaan) döndür. Eğer isim yoksa veya cevap alakasızsa, sadece 'hayır' yaz.`;
-        } else if (formFields[currentStep].key === 'phone') {
-          validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Bu cevap geçerli bir telefon numarası mı? (ör: +905xxxxxxxxx gibi, başında +90 ile) Eğer geçerliyse sadece 'evet' de, değilse daha doğal ve samimi bir şekilde tekrar sor.`;
-        } else {
-          validatePrompt = `Kullanıcıya şu soruyu sordum: '${session.lastQuestion}'. Cevap: '${userAnswer}'. Bu cevap uygun mu? Eğer uygunsa sadece 'evet' de. Eğer uygun değilse, daha doğal ve samimi bir şekilde tekrar sor.`;
-        }
-        try {
-          const validation = (await askGemini(validatePrompt)).trim();
-          if (formFields[currentStep].key === 'name') {
-            console.log('Gemini isim ayıklama cevabı:', validation);
-            if (/^hayır$/i.test(validation)) {
-              await sendWhatsappMessage(from, 'Lütfen adınızı doğru şekilde yazın.');
-            } else {
-              session.answers[formFields[currentStep].key] = validation;
-              session.step++;
-              session.awaitingAnswer = false;
-              if (session.step === formFields.length) {
-                try {
-                  console.log('Firestore\'a kayıt deneniyor:', session.answers);
-                  await db.collection('users').add({
-                    phone: from,
-                    ...session.answers,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-                  await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
-                } catch (err) {
-                  console.error('Firestore kayıt hatası:', err);
-                  await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
-                }
-                delete sessions[from];
-              }
-            }
-          } else if (formFields[currentStep].key === 'phone') {
-            if (/^evet$/i.test(validation)) {
-              session.answers[formFields[currentStep].key] = userAnswer;
-              session.step++;
-              session.awaitingAnswer = false;
-              if (session.step === formFields.length) {
-                try {
-                  console.log('Firestore\'a kayıt deneniyor:', session.answers);
-                  await db.collection('users').add({
-                    phone: from,
-                    ...session.answers,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-                  await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
-                } catch (err) {
-                  console.error('Firestore kayıt hatası:', err);
-                  await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
-                }
-                delete sessions[from];
-              }
-            } else {
-              await sendWhatsappMessage(from, 'Lütfen telefon numaranızı +90 ile başlayacak şekilde yazın.');
-            }
-          } else {
-            if (/^evet$/i.test(validation)) {
-              session.answers[formFields[currentStep].key] = userAnswer;
-              session.step++;
-              session.awaitingAnswer = false;
-              if (session.step === formFields.length) {
-                try {
-                  console.log('Firestore\'a kayıt deneniyor:', session.answers);
-                  await db.collection('users').add({
-                    phone: from,
-                    ...session.answers,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp()
-                  });
-                  await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
-                } catch (err) {
-                  console.error('Firestore kayıt hatası:', err);
-                  await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
-                }
-                delete sessions[from];
-              }
-            } else {
-              await sendWhatsappMessage(from, validation);
-            }
+        // Gemini cevabında yeni bilgi varsa, ayıkla ve kaydet
+        // Basit bir örnek: Eğer cevapta "Adı: ...", "Soyadı: ..." gibi bir bilgi varsa, ayıkla
+        for (const field of formFields) {
+          const regex = new RegExp(`${field.label}:\\s*([^\n]+)`, 'i');
+          const match = geminiResponse.match(regex);
+          if (match) {
+            session.answers[field.key] = match[1].trim();
           }
-        } catch (err) {
-          await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
-          return res.sendStatus(200);
         }
+        // Kullanıcıya Gemini'nin cevabını ilet
+        await sendWhatsappMessage(from, geminiResponse);
       }
+    } catch (err) {
+      await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+      return res.sendStatus(200);
     }
   }
   res.sendStatus(200);
