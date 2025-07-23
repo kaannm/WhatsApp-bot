@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const axios = require('axios');
+const admin = require('firebase-admin');
 
 // Kullanıcı oturumlarını hafızada tutmak için basit bir obje
 const sessions = {};
@@ -11,6 +12,18 @@ const questions = [
   { key: 'phone', text: 'Telefon numaranızı yazar mısınız?' },
   { key: 'city', text: 'Hangi şehirde yaşıyorsunuz?' }
 ];
+
+// Firebase Admin başlat (idempotent)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+    })
+  });
+}
+const db = admin.firestore();
 
 app.get('/', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Railway Express çalışıyor!' });
@@ -55,9 +68,17 @@ app.post('/webhook', express.json(), async (req, res) => {
         await sendWhatsappMessage(from, questions[currentStep].text);
         session.step++;
       } else {
-        // Tüm sorular tamamlandı
-        await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz alındı.');
-        // Burada veritabanına kaydedebilir veya başka işlem yapabilirsin
+        // Tüm sorular tamamlandı, Firestore'a kaydet
+        try {
+          await db.collection('users').add({
+            phone: from,
+            ...session.answers,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+          await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+        } catch (err) {
+          await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+        }
         delete sessions[from]; // Oturumu sıfırla
       }
     }
