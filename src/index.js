@@ -18,10 +18,10 @@ const questions = [
 
 // Resim oluşturma için ek sorular
 const imageQuestions = [
-  { key: 'bestFriendName', text: 'En yakın arkadaşının adı ne?' },
-  { key: 'favoriteActivity', text: 'En çok ne yapmayı seversin?' },
-  { key: 'friendFavoriteActivity', text: 'En yakın arkadaşın ne yapmayı sever?' },
-  { key: 'dreamDestination', text: 'En yakın arkadaşınla hangi ülkeye/nereye gitmek istersin?' },
+  { key: 'bestFriendName', text: 'En yakın arkadaşın kim?' },
+  { key: 'favoriteActivity', text: 'Birlikte ne yapmayı seviyorsunuz?' },
+  { key: 'friendFavoriteActivity', text: 'Emre ile başka neler yapıyorsunuz?' },
+  { key: 'dreamDestination', text: 'Birlikte hangi ülkeye gitmek istersiniz?' },
   { key: 'favoriteStyle', text: 'Hangi tarzı seversin? (casual, sporty, elegant, bohemian, modern)' }
 ];
 
@@ -47,7 +47,7 @@ const GEMINI_LIMIT = 50;
 const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 saat
 
 // Tam asistan akışı için sistem promptu
-const SYSTEM_PROMPT = `Sen samimi ve doğal bir WhatsApp form asistanısın. Kullanıcıyla arkadaşça konuş, kısa ve öz cümleler kullan. 
+const SYSTEM_PROMPT = `Sen çok samimi ve doğal bir WhatsApp arkadaşı gibi konuş. Kullanıcıyla gerçek bir arkadaş gibi sohbet et, robot gibi değil.
 
 İKİ AŞAMALI FORM:
 1. AŞAMA: Temel bilgiler (ad, soyad, e-posta, telefon, şehir)
@@ -55,27 +55,25 @@ const SYSTEM_PROMPT = `Sen samimi ve doğal bir WhatsApp form asistanısın. Kul
 
 ÖNEMLİ KURALLAR:
 1. Kullanıcıdan gelen cevapta yeni bilgi varsa, bunu "YENİ_BİLGİ: [alan]: [değer]" formatında belirt
-2. Eksik bilgiyi iste, mevcut bilgileri tekrar sorma
-3. Konu dışı soruları kibarca reddet ve formu tamamlamaya yönlendir
+2. Aynı soruyu tekrar sorma, kullanıcının verdiği bilgileri hatırla
+3. Doğal konuş, emoji kullan, samimi ol
 4. İlk form tamamlanınca "FORM_TAMAMLANDI" yaz
 5. Resim formu tamamlanınca "IMAGE_FORM_TAMAMLANDI" yaz
-6. Her adımda sadece bir bilgi iste
-7. Sürekli "Merhaba" deme, çeşitli samimi ifadeler kullan
-8. Kullanıcının adını öğrendikten sonra kullan
+6. Kullanıcının adını öğrendikten sonra kullan
+7. Kullanıcının verdiği bilgileri hatırla ve tekrar sorma
 
-Örnek samimi ifadeler:
-- "Harika! Şimdi soyadını öğrenebilir miyim?"
-- "Teşekkürler! E-posta adresin nedir?"
-- "Güzel! Telefon numaranı da alabilir miyim?"
-- "Son olarak hangi şehirde yaşıyorsun?"
-- "Mükemmel! Şimdi resim oluşturmak için birkaç soru daha soracağım."
-- "Harika! En yakın arkadaşının adı ne?"
+DOĞAL KONUŞMA ÖRNEKLERİ:
+- "Harika! Soyadın ne peki?"
+- "E-posta adresin nedir?"
+- "Telefon numaranı da alabilir miyim?"
+- "Hangi şehirde yaşıyorsun?"
+- "Şimdi senin için güzel bir resim yapmak istiyorum! En yakın arkadaşın kim?"
+- "Emre ile neler yapmayı seviyorsunuz?"
+- "Birlikte hangi aktiviteleri yapıyorsunuz?"
+- "Hangi ülkeye gitmek istersiniz?"
+- "Hangi tarzı seversin?"
 
-Örnek cevap formatı:
-"Harika! Şimdi soyadını öğrenebilir miyim?"
-veya
-"YENİ_BİLGİ: Adı: Kaan
-Teşekkürler Kaan! Şimdi soyadını öğrenebilir miyim?"`;
+Kullanıcı zaten bilgi verdiğinde, o bilgiyi kabul et ve bir sonraki soruya geç.`;
 
 const formFields = [
   { key: 'name', label: 'Adı' },
@@ -87,8 +85,8 @@ const formFields = [
 
 const imageFormFields = [
   { key: 'bestFriendName', label: 'En Yakın Arkadaş' },
-  { key: 'favoriteActivity', label: 'Favori Aktivite' },
-  { key: 'friendFavoriteActivity', label: 'Arkadaşın Favori Aktivitesi' },
+  { key: 'favoriteActivity', label: 'Birlikte Yapılan Aktivite' },
+  { key: 'friendFavoriteActivity', label: 'Diğer Aktiviteler' },
   { key: 'dreamDestination', label: 'Hayal Ülke/Yer' },
   { key: 'favoriteStyle', label: 'Favori Tarz' }
 ];
@@ -237,7 +235,7 @@ app.post('/webhook', express.json(), async (req, res) => {
     let currentAnswers = session.formStage === 'basic' ? session.answers : session.imageAnswers;
     let nextField = currentFields.find(f => !currentAnswers[f.key]);
     
-    let prompt = `${SYSTEM_PROMPT}\n\nFORM AŞAMASI: ${session.formStage === 'basic' ? 'TEMEL BİLGİLER' : 'RESİM OLUŞTURMA'}\n\nŞu ana kadar alınan bilgiler:\n${session.formStage === 'basic' ? formState : imageFormState || 'Henüz bilgi yok.'}\n\nKullanıcıdan beklenen bilgi: ${nextField ? nextField.label : 'YOK'}\nKullanıcı cevabı: ${userInput}`;
+    let prompt = `${SYSTEM_PROMPT}\n\nFORM AŞAMASI: ${session.formStage === 'basic' ? 'TEMEL BİLGİLER' : 'RESİM OLUŞTURMA'}\n\nŞu ana kadar alınan bilgiler:\n${session.formStage === 'basic' ? formState : imageFormState || 'Henüz bilgi yok.'}\n\nKullanıcı cevabı: ${userInput}\n\nÖNEMLİ: Kullanıcı zaten bilgi verdiğinde, o bilgiyi kabul et ve bir sonraki soruya geç. Aynı soruyu tekrar sorma. Doğal ve samimi konuş.`;
     
     try {
       const geminiResponse = (await askGemini(prompt)).trim();
@@ -260,8 +258,37 @@ app.post('/webhook', express.json(), async (req, res) => {
         }
       }
       
+      // Manuel bilgi eşleştirme (Gemini bazen karıştırıyor)
+      if (session.formStage === 'image' && userInput.trim()) {
+        const input = userInput.trim().toLowerCase();
+        
+        // Arkadaş adı kontrolü
+        if (!session.imageAnswers.bestFriendName && input.length < 20 && !input.includes(' ')) {
+          session.imageAnswers.bestFriendName = userInput.trim();
+          console.log(`Manuel bilgi kaydedildi: bestFriendName = ${userInput.trim()}`);
+        }
+        
+        // Aktivite kontrolü
+        if (!session.imageAnswers.favoriteActivity && (input.includes('futbol') || input.includes('gokart') || input.includes('kitap') || input.includes('oyna'))) {
+          session.imageAnswers.favoriteActivity = userInput.trim();
+          console.log(`Manuel bilgi kaydedildi: favoriteActivity = ${userInput.trim()}`);
+        }
+        
+        // Ülke kontrolü
+        if (!session.imageAnswers.dreamDestination && (input.includes('italya') || input.includes('pisa') || input.includes('milano'))) {
+          session.imageAnswers.dreamDestination = userInput.trim();
+          console.log(`Manuel bilgi kaydedildi: dreamDestination = ${userInput.trim()}`);
+        }
+        
+        // Tarz kontrolü
+        if (!session.imageAnswers.favoriteStyle && (input.includes('gercekci') || input.includes('realistic') || input.includes('modern'))) {
+          session.imageAnswers.favoriteStyle = 'realistic';
+          console.log(`Manuel bilgi kaydedildi: favoriteStyle = realistic`);
+        }
+      }
+      
       // Eğer temel form tamamlandıysa
-      if (/FORM_TAMAMLANDI/i.test(geminiResponse)) {
+      if (/FORM_TAMAMLANDI/i.test(geminiResponse) && session.formStage === 'basic') {
         try {
           await db.collection('users').add({
             phone: from,
@@ -285,10 +312,15 @@ app.post('/webhook', express.json(), async (req, res) => {
             console.error('Hata mesajı gönderme hatası:', whatsappError.message);
           }
         }
-      } else if (/IMAGE_FORM_TAMAMLANDI/i.test(geminiResponse)) {
+      } else if (/IMAGE_FORM_TAMAMLANDI/i.test(geminiResponse) || 
+                 (session.formStage === 'image' && 
+                  session.imageAnswers.bestFriendName && 
+                  session.imageAnswers.favoriteActivity && 
+                  session.imageAnswers.dreamDestination && 
+                  session.imageAnswers.favoriteStyle)) {
         // Resim formu tamamlandı - AI resim oluştur
         try {
-          const imagePrompt = `${session.answers.name} ve ${session.imageAnswers.bestFriendName} ${session.imageAnswers.dreamDestination} ülkesinde ${session.imageAnswers.favoriteActivity} yaparken. ${session.imageAnswers.favoriteStyle} tarzda, modern ve kaliteli bir resim.`;
+          const imagePrompt = `${session.answers.name} ve ${session.imageAnswers.bestFriendName} ${session.imageAnswers.dreamDestination} ülkesinde ${session.imageAnswers.favoriteActivity} yaparken. ${session.imageAnswers.favoriteStyle} tarzda, modern ve kaliteli bir resim. İki arkadaş mutlu ve eğleniyor.`;
           
           const images = await imagenService.generateImage(imagePrompt, {
             aspectRatio: '1:1',
