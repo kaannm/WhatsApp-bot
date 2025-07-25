@@ -132,6 +132,46 @@ const whatsappService = {
     }
   },
 
+  // WhatsApp Cloud API'ye template mesajı gönder (hızlı butonlar için)
+  sendTemplateMessage: async (to, templateName, language = 'tr') => {
+    try {
+      // Rate limiting için kısa bekleme
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const response = await axios.post(
+        `https://graph.facebook.com/v19.0/${config.whatsapp.phoneNumberId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: {
+              code: language
+            }
+          }
+        },
+        {
+          headers: { 
+            Authorization: `Bearer ${config.whatsapp.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+      
+      console.log('WhatsApp template mesajı gönderildi:', { to, templateName, language });
+      return response.data;
+    } catch (error) {
+      console.error('WhatsApp template mesajı gönderme hatası:', error.message, { 
+        to, 
+        status: error.response?.status,
+        data: error.response?.data 
+      });
+      throw error;
+    }
+  },
+
 // WhatsApp Cloud API'ye medya gönder
   sendMedia: async (to, base64Data, mimeType, filename, caption = '') => {
     try {

@@ -203,10 +203,10 @@ app.post('/webhook', express.json(), async (req, res) => {
   if (message) {
     const from = message.from;
     
-    // Hızlı cevap butonları kontrolü
+    // Template button response kontrolü
     if (message.interactive && message.interactive.type === 'button_reply') {
       const buttonText = message.interactive.button_reply.title;
-      console.log('Hızlı cevap butonu tıklandı:', buttonText);
+      console.log('Template buton tıklandı:', buttonText);
       
       if (buttonText === 'Başlayalım!') {
         if (!sessions[from]) {
@@ -231,38 +231,28 @@ app.post('/webhook', express.json(), async (req, res) => {
           console.error('Veda mesajı gönderme hatası:', whatsappError.message);
         }
         return res.sendStatus(200);
-      } else if (buttonText === 'Tamamdır!') {
-        if (sessions[from] && sessions[from].formStage === 'fun') {
-          const firstQuestion = funQuestions[0];
-          try {
-            await sendWhatsappMessage(from, firstQuestion.text);
-          } catch (whatsappError) {
-            console.error('İlk soru gönderme hatası:', whatsappError.message);
-          }
-        }
-        return res.sendStatus(200);
-      } else if (buttonText === 'Atla') {
-        if (sessions[from] && sessions[from].formStage === 'fun') {
-          // Soruyu atla, bir sonrakine geç
-          sessions[from].currentQuestionIndex++;
-          if (sessions[from].currentQuestionIndex >= funQuestions.length) {
-            // Tüm sorular tamamlandı
-            try {
-              await sendWhatsappMessage(from, `Harika gidiyorsun! 📸 Şimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
-            } catch (whatsappError) {
-              console.error('Fotoğraf isteme hatası:', whatsappError.message);
-            }
-          } else {
-            const nextQuestion = funQuestions[sessions[from].currentQuestionIndex];
-            try {
-              await sendWhatsappMessage(from, nextQuestion.text);
-            } catch (whatsappError) {
-              console.error('Soru gönderme hatası:', whatsappError.message);
-            }
-          }
-        }
-        return res.sendStatus(200);
       }
+    }
+    
+    // Metin komutları kontrolü (fallback)
+    const userInput = message.text?.body || '';
+    
+    if (userInput.toLowerCase().includes('başlayalım') || userInput.toLowerCase().includes('başla')) {
+      if (!sessions[from]) {
+        sessions[from] = { 
+          answers: {}, 
+          funAnswers: {},
+          awaitingAnswer: false,
+          formStage: 'basic',
+          currentQuestionIndex: 0
+        };
+      }
+      try {
+        await sendWhatsappMessage(from, 'Harika! Adın ne?');
+      } catch (whatsappError) {
+        console.error('Soru gönderme hatası:', whatsappError.message);
+      }
+      return res.sendStatus(200);
     }
     
     if (!sessions[from]) {
@@ -274,14 +264,17 @@ app.post('/webhook', express.json(), async (req, res) => {
         currentQuestionIndex: 0
       };
       
-      // Hoş geldin mesajı gönder (hızlı cevap butonları ile)
+      // Hoş geldin mesajı gönder (template ile hızlı butonlar)
       try {
-        await whatsappService.sendInteractiveMessage(from, 
-          `Selam! 👋 Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤\n\nSana ve arkadaşına özel benzersiz bir hikaye oluşturmak için buradayım. Öncesinde sadece bir kaç soru sormam gerekiyor.`, 
-          ['Başlayalım!', 'Şimdi Değil']
-        );
+        await whatsappService.sendTemplateMessage(from, 'welcome_message', 'tr');
       } catch (whatsappError) {
-        console.error('Hoş geldin mesajı gönderme hatası:', whatsappError.message);
+        console.error('Template mesajı gönderme hatası:', whatsappError.message);
+        // Fallback: Basit metin mesajı
+        try {
+          await sendWhatsappMessage(from, `Selam! 👋 Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤\n\nSana ve arkadaşına özel benzersiz bir hikaye oluşturmak için buradayım. Öncesinde sadece bir kaç soru sormam gerekiyor.\n\nBaşlamak için "Başlayalım!" yazabilirsin.`);
+        } catch (fallbackError) {
+          console.error('Fallback mesajı gönderme hatası:', fallbackError.message);
+        }
       }
       return res.sendStatus(200);
     }
@@ -293,7 +286,6 @@ app.post('/webhook', express.json(), async (req, res) => {
     }
     
     // Kullanıcıdan gelen cevabı ve formun mevcut durumunu Gemini'ye ilet
-    let userInput = message.text?.body || '';
     let formState = getFormState(session);
     let imageFormState = getImageFormState(session);
     
@@ -337,10 +329,8 @@ app.post('/webhook', express.json(), async (req, res) => {
           session.formStage = 'fun';
           session.currentQuestionIndex = 0;
           try {
-            await whatsappService.sendInteractiveMessage(from, 
-              `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla" butonuna tıklayabilirsin.`, 
-              ['Tamamdır!', 'Atla']
-            );
+            await sendWhatsappMessage(from, 
+              `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla" yazabilirsin.\n\nİlk soru: ${funQuestions[0].text}`);
           } catch (whatsappError) {
             console.error('Geçiş mesajı gönderme hatası:', whatsappError.message);
           }
