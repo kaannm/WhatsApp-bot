@@ -9,20 +9,15 @@ const whatsappService = require('./services/whatsappService');
 // Kullanıcı oturumlarını hafızada tutmak için basit bir obje
 const sessions = {};
 const questions = [
-  { key: 'name', text: 'Adınızı yazar mısınız?' },
-  { key: 'surname', text: 'Soyadınızı yazar mısınız?' },
-  { key: 'email', text: 'E-posta adresinizi yazar mısınız?' },
-  { key: 'phone', text: 'Telefon numaranızı yazar mısınız?' },
-  { key: 'city', text: 'Hangi şehirde yaşıyorsunuz?' }
+  { key: 'name', text: 'Adın ne?' },
+  { key: 'friendName', text: 'Arkadaşının adı ne?' }
 ];
 
-// Resim oluşturma için ek sorular
-const imageQuestions = [
-  { key: 'bestFriendName', text: 'En yakın arkadaşın kim?' },
-  { key: 'favoriteActivity', text: 'Birlikte ne yapmayı seviyorsunuz?' },
-  { key: 'friendFavoriteActivity', text: 'Emre ile başka neler yapıyorsunuz?' },
-  { key: 'dreamDestination', text: 'Birlikte hangi ülkeye gitmek istersiniz?' },
-  { key: 'favoriteStyle', text: 'Hangi tarzı seversin? (casual, sporty, elegant, bohemian, modern)' }
+// Eğlenceli sorular (3 basit soru)
+const funQuestions = [
+  { key: 'friendLikes', text: 'Arkadaşın ne yapmayı sever?' },
+  { key: 'youLike', text: 'Sen ne yapmayı seversin?' },
+  { key: 'dreamPlace', text: 'Birlikte nereye gitmek istersiniz?' }
 ];
 
 // Firebase Admin başlat (idempotent)
@@ -46,49 +41,44 @@ const geminiLimits = {};
 const GEMINI_LIMIT = 50;
 const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 saat
 
-// Tam asistan akışı için sistem promptu
-const SYSTEM_PROMPT = `Sen çok samimi ve doğal bir WhatsApp arkadaşı gibi konuş. Kullanıcıyla gerçek bir arkadaş gibi sohbet et, robot gibi değil.
+// Coca-Cola tarzı asistan akışı için sistem promptu
+const SYSTEM_PROMPT = `Sen eğlenceli ve samimi bir WhatsApp asistanısın. Coca-Cola tarzında konuş, emoji kullan, arkadaşça ol.
 
 İKİ AŞAMALI FORM:
-1. AŞAMA: Temel bilgiler (ad, soyad, e-posta, telefon, şehir)
-2. AŞAMA: Resim oluşturma bilgileri (arkadaş, aktiviteler, hayaller)
+1. AŞAMA: Temel bilgiler (ad, arkadaş adı)
+2. AŞAMA: Eğlenceli sorular (5 soru + fotoğraflar)
 
 ÖNEMLİ KURALLAR:
 1. Kullanıcıdan gelen cevapta yeni bilgi varsa, bunu "YENİ_BİLGİ: [alan]: [değer]" formatında belirt
-2. Aynı soruyu tekrar sorma, kullanıcının verdiği bilgileri hatırla
-3. Doğal konuş, emoji kullan, samimi ol
-4. İlk form tamamlanınca "FORM_TAMAMLANDI" yaz
-5. Resim formu tamamlanınca "IMAGE_FORM_TAMAMLANDI" yaz
-6. Kullanıcının adını öğrendikten sonra kullan
-7. Kullanıcının verdiği bilgileri hatırla ve tekrar sorma
+2. Eğlenceli ve samimi konuş, emoji kullan
+3. İlk form tamamlanınca "FORM_TAMAMLANDI" yaz
+4. Resim formu tamamlanınca "IMAGE_FORM_TAMAMLANDI" yaz
+5. Kullanıcının adını öğrendikten sonra kullan
+6. "Atla" yazarsa yeni soru sor
 
-DOĞAL KONUŞMA ÖRNEKLERİ:
-- "Harika! Soyadın ne peki?"
-- "E-posta adresin nedir?"
-- "Telefon numaranı da alabilir miyim?"
-- "Hangi şehirde yaşıyorsun?"
-- "Şimdi senin için güzel bir resim yapmak istiyorum! En yakın arkadaşın kim?"
-- "Emre ile neler yapmayı seviyorsunuz?"
-- "Birlikte hangi aktiviteleri yapıyorsunuz?"
-- "Hangi ülkeye gitmek istersiniz?"
-- "Hangi tarzı seversin?"
+COCA-COLA TARZI KONUŞMA:
+- "Selam! 👋 Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤"
+- "Tanıştığımıza memnun oldum [Ad]! 🙌"
+- "Harika gidiyorsun! 📸"
+- "Mükemmel. Şimdi biraz bekle! 🎬"
+- "Süper. Şimdi de arkadaşının bir fotoğrafını yükle."
 
-Kullanıcı zaten bilgi verdiğinde, o bilgiyi kabul et ve bir sonraki soruya geç.`;
+EĞLENCELİ SORULAR:
+- "Arkadaşın ne yapmayı sever?"
+- "Sen ne yapmayı seversin?"
+- "Birlikte nereye gitmek istersiniz?"
+
+Kullanıcı "Atla" yazarsa, yeni bir soru sor.`;
 
 const formFields = [
   { key: 'name', label: 'Adı' },
-  { key: 'surname', label: 'Soyadı' },
-  { key: 'email', label: 'E-posta' },
-  { key: 'phone', label: 'Telefon' },
-  { key: 'city', label: 'Şehir' }
+  { key: 'friendName', label: 'Arkadaş Adı' }
 ];
 
-const imageFormFields = [
-  { key: 'bestFriendName', label: 'En Yakın Arkadaş' },
-  { key: 'favoriteActivity', label: 'Birlikte Yapılan Aktivite' },
-  { key: 'friendFavoriteActivity', label: 'Diğer Aktiviteler' },
-  { key: 'dreamDestination', label: 'Hayal Ülke/Yer' },
-  { key: 'favoriteStyle', label: 'Favori Tarz' }
+const funFormFields = [
+  { key: 'friendLikes', label: 'Arkadaşın Sevdiği' },
+  { key: 'youLike', label: 'Senin Sevdiğin' },
+  { key: 'dreamPlace', label: 'Hayal Yeriniz' }
 ];
 
 function getFormState(session) {
@@ -212,13 +202,87 @@ app.post('/webhook', express.json(), async (req, res) => {
       
   if (message) {
     const from = message.from;
+    
+    // Hızlı cevap butonları kontrolü
+    if (message.interactive && message.interactive.type === 'button_reply') {
+      const buttonText = message.interactive.button_reply.title;
+      console.log('Hızlı cevap butonu tıklandı:', buttonText);
+      
+      if (buttonText === 'Başlayalım!') {
+        if (!sessions[from]) {
+          sessions[from] = { 
+            answers: {}, 
+            funAnswers: {},
+            awaitingAnswer: false,
+            formStage: 'basic',
+            currentQuestionIndex: 0
+          };
+        }
+        try {
+          await sendWhatsappMessage(from, 'Harika! Adın ne?');
+        } catch (whatsappError) {
+          console.error('Soru gönderme hatası:', whatsappError.message);
+        }
+        return res.sendStatus(200);
+      } else if (buttonText === 'Şimdi Değil') {
+        try {
+          await sendWhatsappMessage(from, 'Tamam! İstediğin zaman "Merhaba" yazarak başlayabilirsin. 👋');
+        } catch (whatsappError) {
+          console.error('Veda mesajı gönderme hatası:', whatsappError.message);
+        }
+        return res.sendStatus(200);
+      } else if (buttonText === 'Tamamdır!') {
+        if (sessions[from] && sessions[from].formStage === 'fun') {
+          const firstQuestion = funQuestions[0];
+          try {
+            await sendWhatsappMessage(from, firstQuestion.text);
+          } catch (whatsappError) {
+            console.error('İlk soru gönderme hatası:', whatsappError.message);
+          }
+        }
+        return res.sendStatus(200);
+      } else if (buttonText === 'Atla') {
+        if (sessions[from] && sessions[from].formStage === 'fun') {
+          // Soruyu atla, bir sonrakine geç
+          sessions[from].currentQuestionIndex++;
+          if (sessions[from].currentQuestionIndex >= funQuestions.length) {
+            // Tüm sorular tamamlandı
+            try {
+              await sendWhatsappMessage(from, `Harika gidiyorsun! 📸 Şimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
+            } catch (whatsappError) {
+              console.error('Fotoğraf isteme hatası:', whatsappError.message);
+            }
+          } else {
+            const nextQuestion = funQuestions[sessions[from].currentQuestionIndex];
+            try {
+              await sendWhatsappMessage(from, nextQuestion.text);
+            } catch (whatsappError) {
+              console.error('Soru gönderme hatası:', whatsappError.message);
+            }
+          }
+        }
+        return res.sendStatus(200);
+      }
+    }
     if (!sessions[from]) {
       sessions[from] = { 
         answers: {}, 
-        imageAnswers: {},
+        funAnswers: {},
         awaitingAnswer: false,
-        formStage: 'basic' // 'basic' veya 'image'
+        formStage: 'basic', // 'basic' veya 'fun'
+        currentQuestionIndex: 0
       };
+      
+      // Hoş geldin mesajı gönder (hızlı cevap butonları ile)
+      try {
+        await whatsappService.sendInteractiveMessage(from, 
+          `Selam! 👋 Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤\n\nSana ve arkadaşına özel benzersiz bir hikaye oluşturmak için buradayım. Öncesinde sadece bir kaç soru sormam gerekiyor.`, 
+          ['Başlayalım!', 'Şimdi Değil']
+        );
+      } catch (whatsappError) {
+        console.error('Hoş geldin mesajı gönderme hatası:', whatsappError.message);
+      }
+      return res.sendStatus(200);
     }
     const session = sessions[from];
     if (!canUseGemini(from)) {
@@ -296,10 +360,14 @@ app.post('/webhook', express.json(), async (req, res) => {
             createdAt: admin.firestore.FieldValue.serverTimestamp()
           });
           
-          // Resim formuna geç
-          session.formStage = 'image';
+          // Eğlenceli sorulara geç
+          session.formStage = 'fun';
+          session.currentQuestionIndex = 0;
           try {
-            await sendWhatsappMessage(from, `🎉 Harika ${session.answers.name}! Temel bilgiler tamamlandı. Şimdi senin için özel bir resim oluşturmak istiyorum. Birkaç soru daha soracağım.`);
+            await whatsappService.sendInteractiveMessage(from, 
+            `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla" butonuna tıklayabilirsin.`, 
+            ['Tamamdır!', 'Atla']
+          );
           } catch (whatsappError) {
             console.error('Geçiş mesajı gönderme hatası:', whatsappError.message);
           }
@@ -310,6 +378,51 @@ app.post('/webhook', express.json(), async (req, res) => {
             await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
           } catch (whatsappError) {
             console.error('Hata mesajı gönderme hatası:', whatsappError.message);
+          }
+        }
+      } else if (session.formStage === 'fun') {
+        // Eğlenceli sorular akışı
+        const currentQuestion = funQuestions[session.currentQuestionIndex];
+        
+        if (userInput.toLowerCase().includes('atla')) {
+          // Soruyu atla, bir sonrakine geç
+          session.currentQuestionIndex++;
+          if (session.currentQuestionIndex >= funQuestions.length) {
+            // Tüm sorular tamamlandı
+            try {
+              await sendWhatsappMessage(from, `Harika gidiyorsun! 📸 Şimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
+            } catch (whatsappError) {
+              console.error('Fotoğraf isteme hatası:', whatsappError.message);
+            }
+          } else {
+            const nextQuestion = funQuestions[session.currentQuestionIndex];
+            try {
+              await sendWhatsappMessage(from, nextQuestion.text);
+            } catch (whatsappError) {
+              console.error('Soru gönderme hatası:', whatsappError.message);
+            }
+          }
+        } else {
+          // Cevabı kaydet
+          session.funAnswers[currentQuestion.key] = userInput.trim();
+          console.log(`Eğlenceli cevap kaydedildi: ${currentQuestion.key} = ${userInput.trim()}`);
+          
+          // Bir sonraki soruya geç
+          session.currentQuestionIndex++;
+          if (session.currentQuestionIndex >= funQuestions.length) {
+            // Tüm sorular tamamlandı
+            try {
+              await sendWhatsappMessage(from, `Harika gidiyorsun! 📸 Şimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
+            } catch (whatsappError) {
+              console.error('Fotoğraf isteme hatası:', whatsappError.message);
+            }
+          } else {
+            const nextQuestion = funQuestions[session.currentQuestionIndex];
+            try {
+              await sendWhatsappMessage(from, nextQuestion.text);
+            } catch (whatsappError) {
+              console.error('Soru gönderme hatası:', whatsappError.message);
+            }
           }
         }
       } else if (/IMAGE_FORM_TAMAMLANDI/i.test(geminiResponse) || 
