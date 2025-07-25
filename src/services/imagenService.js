@@ -14,18 +14,24 @@ class ImagenService {
     }
 
     try {
-      // Google Cloud CLI ile token al (alternatif olarak service account key kullanılabilir)
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
+      // Service account key ile token al
+      const { GoogleAuth } = require('google-auth-library');
       
-      const { stdout } = await execAsync('gcloud auth print-access-token');
-      this.accessToken = stdout.trim();
+      const auth = new GoogleAuth({
+        keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || 'whatsappbot-c6e5f-firebase-adminsdk-fbsvc-e718facc39.json',
+        scopes: ['https://www.googleapis.com/auth/cloud-platform']
+      });
+      
+      const client = await auth.getClient();
+      const token = await client.getAccessToken();
+      
+      this.accessToken = token.token;
       this.tokenExpiry = Date.now() + (3600 * 1000); // 1 saat geçerli
       
       return this.accessToken;
     } catch (error) {
       console.error('Google Cloud token alma hatası:', error);
+      // Resim oluşturma olmadan devam et
       throw new Error('Google Cloud kimlik doğrulama hatası');
     }
   }
