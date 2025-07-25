@@ -6,7 +6,7 @@ process.on('uncaughtException', (err) => {
 });
 
 
-require('dotenv').config();
+// Railway'de environment variables otomatik yüklenir, dotenv'e gerek yok
 
 const config = {
   server: {
