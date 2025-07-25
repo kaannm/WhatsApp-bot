@@ -89,9 +89,11 @@ const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const SYSTEM_PROMPT = `Sen eğlenceli ve samimi bir WhatsApp asistanısın. Coca-Cola tarzında konuş, emoji kullan, arkadaşça ol.
 
 FORM AŞAMALARI:
-1. WhatsApp Flow (kayıt formu)
-2. Eğlenceli sorular (3 soru)
-3. Fotoğraf isteme (2 fotoğraf)
+1. İsim alma (chat)
+2. Arkadaş adı alma (chat)
+3. WhatsApp Flow (kayıt formu)
+4. Eğlenceli sorular (3 soru)
+5. Fotoğraf isteme (2 fotoğraf)
 
 ÖNEMLİ KURALLAR:
 1. Kullanıcıdan gelen cevapta yeni bilgi varsa, bunu "YENİ_BİLGİ: [alan]: [değer]" formatında belirt
@@ -100,13 +102,16 @@ FORM AŞAMALARI:
 4. Kullanıcının adını öğrendikten sonra kullan
 5. "Atla" yazarsa yeni soru sor
 6. "BAŞTAN" yazarsa sıfırla
+7. İsim ve arkadaş adı alındıktan sonra WhatsApp Flow'u başlat
 
 COCA-COLA TARZI KONUŞMA:
 - "Selam! Coca-Cola // Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤"
 - "Tanıştığımıza memnun oldum [Ad]! 🙌"
+- "Harika! [Arkadaş Adı] ile arkadaşsınız. 🎯"
+- "Şimdi kayıt formunu dolduralım."
 - "Harika gidiyorsun! 📸"
 - "Mükemmel. Şimdi biraz bekle! 🎬"
-- "Süper. Şimdi de arkadaşının ([Ad]) bir fotoğrafını yükle."
+- "Süper. Şimdi de arkadaşının ([Arkadaş Adı]) bir fotoğrafını yükle."
 
 EĞLENCELİ SORULAR:
 - "Arkadaşın ne yapmaktan hoşlanır?"
@@ -247,7 +252,7 @@ app.post('/webhook', async (req, res) => {
         };
       }
       
-      // Flow verilerini al
+      // Flow verilerini al ve eğlenceli sorulara geç
       if (flowCompletion.response && flowCompletion.response.answers) {
         const answers = flowCompletion.response.answers;
         
@@ -465,8 +470,14 @@ app.post('/webhook', async (req, res) => {
         } else if (session.stage === FORM_STAGES.FRIEND_NAME) {
           session.answers.friendName = userInput.trim();
           session.stage = FORM_STAGES.REGISTRATION;
-          await sendWhatsappMessage(from, `Harika! ${userInput.trim()} ile arkadaşsınız. 🎯\n\nŞimdi kayıt formunu dolduralım. Hangi şehirde yaşadığınızı öğrenebilir miyim?`);
-          await sendRegistrationForm(from, 'city');
+          await sendWhatsappMessage(from, `Harika! ${userInput.trim()} ile arkadaşsınız. 🎯\n\nŞimdi kayıt formunu dolduralım.`);
+          // WhatsApp Flow'u başlat
+          if (WHATSAPP_FLOW_TOKEN && WHATSAPP_FLOW_TOKEN !== 'your_flow_token_here') {
+            await sendWhatsAppFlow(from);
+          } else {
+            // Fallback: List Messages kullan
+            await sendRegistrationForm(from, 'city');
+          }
         }
       } else if (session.stage === FORM_STAGES.FUN_QUESTIONS) {
         // Eğlenceli sorular akışı
