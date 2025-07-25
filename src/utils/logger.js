@@ -1,64 +1,18 @@
-const winston = require('winston');
-const path = require('path');
-const config = require('../config');
-
-// Log dosyası için klasör oluştur
-const fs = require('fs');
-const logDir = path.dirname(config.logging.filePath);
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
-}
-
-// Özel log formatı
-const logFormat = winston.format.combine(
-  winston.format.timestamp({
-    format: 'YYYY-MM-DD HH:mm:ss'
-  }),
-  winston.format.errors({ stack: true }),
-  winston.format.json(),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    let log = `${timestamp} [${level.toUpperCase()}]: ${message}`;
-    
-    if (Object.keys(meta).length > 0) {
-      log += ` ${JSON.stringify(meta)}`;
-    }
-    
-    return log;
-  })
-);
-
-// Winston logger konfigürasyonu
-const logger = winston.createLogger({
-  level: config.logging.level,
-  format: logFormat,
-  transports: [
-    // Dosyaya yazma
-    new winston.transports.File({
-      filename: config.logging.filePath,
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-      tailable: true
-    }),
-    
-    // Hata logları için ayrı dosya
-    new winston.transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error',
-      maxsize: 5242880,
-      maxFiles: 5
-    })
-  ]
-});
-
-// Development ortamında console'a da yaz
-if (config.server.nodeEnv === 'development') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
-}
+// Basit console logger (Railway için)
+const logger = {
+  info: (message, meta = {}) => {
+    console.log(`[INFO] ${new Date().toISOString()}: ${message}`, meta);
+  },
+  error: (message, meta = {}) => {
+    console.error(`[ERROR] ${new Date().toISOString()}: ${message}`, meta);
+  },
+  warn: (message, meta = {}) => {
+    console.warn(`[WARN] ${new Date().toISOString()}: ${message}`, meta);
+  },
+  debug: (message, meta = {}) => {
+    console.log(`[DEBUG] ${new Date().toISOString()}: ${message}`, meta);
+  }
+};
 
 // Özel log fonksiyonları
 const logUserInteraction = (phoneNumber, action, details = {}) => {
