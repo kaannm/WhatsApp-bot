@@ -7,7 +7,10 @@ const whatsappService = {
   // WhatsApp Cloud API'ye metin mesajı gönder
   sendMessage: async (to, text) => {
     try {
-      await axios.post(
+      // Rate limiting için kısa bekleme
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const response = await axios.post(
         `https://graph.facebook.com/v19.0/${config.whatsapp.phoneNumberId}/messages`,
         {
           messaging_product: 'whatsapp',
@@ -19,13 +22,19 @@ const whatsappService = {
           headers: { 
             Authorization: `Bearer ${config.whatsapp.accessToken}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 10000 // 10 saniye timeout
         }
       );
       
-      logger.info('WhatsApp mesajı gönderildi', { to, textLength: text.length });
+      console.log('WhatsApp mesajı gönderildi:', { to, textLength: text.length });
+      return response.data;
     } catch (error) {
-      logger.error('WhatsApp mesaj gönderme hatası', { error: error.message, to });
+      console.error('WhatsApp mesaj gönderme hatası:', error.message, { 
+        to, 
+        status: error.response?.status,
+        data: error.response?.data 
+      });
       throw error;
     }
   },
@@ -69,9 +78,9 @@ const whatsappService = {
         }
       );
       
-      logger.info('WhatsApp medyası gönderildi', { to, mimeType, filename });
+      console.log('WhatsApp medyası gönderildi:', { to, mimeType, filename });
     } catch (error) {
-      logger.error('WhatsApp medya gönderme hatası', { error: error.message, to, mimeType });
+      console.error('WhatsApp medya gönderme hatası:', error.message, { to, mimeType });
       throw error;
     }
   },
@@ -88,7 +97,7 @@ const whatsappService = {
       );
       return res.data.url;
     } catch (error) {
-      logger.error('Medya URL alma hatası', { error: error.message, mediaId });
+      console.error('Medya URL alma hatası:', error.message, { mediaId });
       throw error;
     }
   },
@@ -99,7 +108,7 @@ const whatsappService = {
       const res = await axios.get(url, { responseType: 'arraybuffer' });
       return Buffer.from(res.data, 'binary').toString('base64');
     } catch (error) {
-      logger.error('Medya indirme hatası', { error: error.message, url });
+      console.error('Medya indirme hatası:', error.message, { url });
       throw error;
     }
   },

@@ -32,7 +32,7 @@ const geminiService = {
       const response = await result.response;
       const optimizedPrompt = response.text().trim();
 
-      logger.info('Prompt optimize edildi', {
+      console.log('Prompt optimize edildi:', {
         original: userMessage,
         optimized: optimizedPrompt
       });
@@ -40,7 +40,7 @@ const geminiService = {
       return optimizedPrompt;
 
     } catch (error) {
-      logger.error('Prompt optimizasyon hatası', { error: error.message });
+      console.error('Prompt optimizasyon hatası:', error.message);
       
       // Fallback: Basit çeviri
       return `Two friends in a beautiful scene, ${userMessage}, cinematic quality, smooth camera movement, 30 seconds duration`;
@@ -93,7 +93,7 @@ const geminiService = {
       const response = await result.response;
       const videoPrompt = response.text().trim();
 
-      logger.info('Video prompt oluşturuldu', {
+      console.log('Video prompt oluşturuldu:', {
         userMessage,
         videoPrompt
       });
@@ -101,7 +101,7 @@ const geminiService = {
       return videoPrompt;
 
     } catch (error) {
-      logger.error('Video prompt oluşturma hatası', { error: error.message });
+      console.error('Video prompt oluşturma hatası:', error.message);
       
       // Fallback: Basit prompt
       return `Two friends from the photos in a beautiful scene, ${userMessage}, cinematic quality, smooth camera movement, 30 seconds duration`;
@@ -139,7 +139,7 @@ const geminiService = {
       const response = await result.response;
       const analysis = JSON.parse(response.text().trim());
 
-      logger.info('Mesaj analiz edildi', {
+      console.log('Mesaj analiz edildi:', {
         original: message,
         analysis
       });
@@ -147,7 +147,7 @@ const geminiService = {
       return analysis;
 
     } catch (error) {
-      logger.error('Mesaj analiz hatası', { error: error.message });
+      console.error('Mesaj analiz hatası:', error.message);
       
       // Fallback: Basit analiz
       return {
@@ -183,7 +183,7 @@ const geminiService = {
       const response = await result.response;
       const score = parseInt(response.text().trim());
 
-      logger.info('Video kalitesi değerlendirildi', {
+      console.log('Video kalitesi değerlendirildi:', {
         videoUrl,
         score
       });
@@ -191,7 +191,7 @@ const geminiService = {
       return score;
 
     } catch (error) {
-      logger.error('Video kalite değerlendirme hatası', { error: error.message });
+      console.error('Video kalite değerlendirme hatası:', error.message);
       return 7; // Varsayılan skor
     }
   },
@@ -205,7 +205,7 @@ const geminiService = {
       const response = await result.response;
       const answer = response.text().trim();
 
-      logger.info('Basit doğrulama tamamlandı', {
+      console.log('Basit doğrulama tamamlandı:', {
         prompt: prompt.substring(0, 100) + '...',
         answer
       });
@@ -213,7 +213,7 @@ const geminiService = {
       return answer;
 
     } catch (error) {
-      logger.error('Basit doğrulama hatası', { error: error.message });
+      console.error('Basit doğrulama hatası:', error.message);
       return 'Uygun'; // Hata durumunda varsayılan olarak uygun kabul et
     }
   }

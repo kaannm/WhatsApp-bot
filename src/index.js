@@ -233,28 +233,49 @@ app.post('/webhook', express.json(), async (req, res) => {
             });
             
             if (images && images.length > 0) {
-              await imagenService.sendImageToWhatsApp(from, images[0].imageData, 
-                `Merhaba ${session.answers.name}! Form tamamlandı ve senin için özel bir resim oluşturdum. 🎉`);
+              try {
+                await imagenService.sendImageToWhatsApp(from, images[0].imageData, 
+                  `Merhaba ${session.answers.name}! Form tamamlandı ve senin için özel bir resim oluşturdum. 🎉`);
+              } catch (imageSendError) {
+                console.error('Resim gönderme hatası:', imageSendError.message);
+                await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+              }
             }
           } catch (imageError) {
             console.error('Resim oluşturma hatası:', imageError);
             // Resim oluşturulamazsa sadece teşekkür mesajı gönder
-            await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+            try {
+              await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+            } catch (whatsappError) {
+              console.error('Teşekkür mesajı gönderme hatası:', whatsappError.message);
+            }
           }
           
         } catch (err) {
           console.error('Firestore kayıt hatası:', err);
-          await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+          try {
+            await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
+          } catch (whatsappError) {
+            console.error('Hata mesajı gönderme hatası:', whatsappError.message);
+          }
         }
         delete sessions[from];
       } else {
         // Kullanıcıya Gemini'nin cevabını ilet (YENİ_BİLGİ kısmını çıkar)
         const cleanResponse = geminiResponse.replace(/YENİ_BİLGİ:.*$/gim, '').trim();
-        await sendWhatsappMessage(from, cleanResponse);
+        try {
+          await sendWhatsappMessage(from, cleanResponse);
+        } catch (whatsappError) {
+          console.error('WhatsApp mesaj gönderme hatası:', whatsappError.message);
+        }
       }
     } catch (err) {
       console.error('Gemini API hatası:', err);
-      await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+      try {
+        await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+      } catch (whatsappError) {
+        console.error('WhatsApp mesaj gönderme hatası:', whatsappError.message);
+      }
       return res.sendStatus(200);
     }
   }
