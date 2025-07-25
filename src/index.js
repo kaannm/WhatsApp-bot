@@ -46,7 +46,7 @@ const SYSTEM_PROMPT = `Sen eğlenceli ve samimi bir WhatsApp asistanısın. Coca
 
 İKİ AŞAMALI FORM:
 1. AŞAMA: Temel bilgiler (ad, arkadaş adı)
-2. AŞAMA: Eğlenceli sorular (5 soru + fotoğraflar)
+2. AŞAMA: Eğlenceli sorular (3 soru + fotoğraflar)
 
 ÖNEMLİ KURALLAR:
 1. Kullanıcıdan gelen cevapta yeni bilgi varsa, bunu "YENİ_BİLGİ: [alan]: [değer]" formatında belirt
@@ -81,39 +81,6 @@ const funFormFields = [
   { key: 'dreamPlace', label: 'Hayal Yeriniz' }
 ];
 
-// Kayıt formu seçenekleri
-const registrationOptions = {
-  cities: [
-    { id: 'istanbul', title: 'İstanbul' },
-    { id: 'ankara', title: 'Ankara' },
-    { id: 'izmir', title: 'İzmir' },
-    { id: 'bursa', title: 'Bursa' },
-    { id: 'antalya', title: 'Antalya' },
-    { id: 'adana', title: 'Adana' },
-    { id: 'konya', title: 'Konya' },
-    { id: 'gaziantep', title: 'Gaziantep' },
-    { id: 'diyarbakir', title: 'Diyarbakır' },
-    { id: 'other', title: 'Diğer' }
-  ],
-  ageGroups: [
-    { id: '18-25', title: '18-25 yaş' },
-    { id: '26-35', title: '26-35 yaş' },
-    { id: '36-45', title: '36-45 yaş' },
-    { id: '46+', title: '46+ yaş' }
-  ],
-  interests: [
-    { id: 'sports', title: 'Spor' },
-    { id: 'music', title: 'Müzik' },
-    { id: 'travel', title: 'Seyahat' },
-    { id: 'food', title: 'Yemek' },
-    { id: 'technology', title: 'Teknoloji' },
-    { id: 'music', title: 'Müzik' },
-    { id: 'art', title: 'Sanat' },
-    { id: 'gaming', title: 'Oyun' },
-    { id: 'fitness', title: 'Fitness' }
-  ]
-};
-
 function getFormState(session) {
   let state = '';
   for (const field of formFields) {
@@ -126,9 +93,9 @@ function getFormState(session) {
 
 function getImageFormState(session) {
   let state = '';
-  for (const field of imageFormFields) {
-    if (session.imageAnswers && session.imageAnswers[field.key]) {
-      state += `${field.label}: ${session.imageAnswers[field.key]}\n`;
+  for (const field of funFormFields) {
+    if (session.funAnswers && session.funAnswers[field.key]) {
+      state += `${field.label}: ${session.funAnswers[field.key]}\n`;
     }
   }
   return state.trim();
@@ -205,7 +172,7 @@ app.post('/edit-image', express.json(), async (req, res) => {
     
     if (!imageData || !prompt || !phoneNumber) {
       return res.status(400).json({ error: 'Resim, prompt ve telefon numarası gerekli' });
-      }
+    }
       
     // Resmi düzenle
     const images = await imagenService.editImage(imageData, prompt, options);
@@ -235,56 +202,6 @@ app.post('/webhook', express.json(), async (req, res) => {
       
   if (message) {
     const from = message.from;
-    
-    // Liste mesajları kontrolü (kayıt formu)
-    if (message.interactive && message.interactive.type === 'list_reply') {
-      const listReply = message.interactive.list_reply;
-      console.log('Liste seçimi yapıldı:', listReply);
-      
-      if (!sessions[from]) {
-        sessions[from] = { 
-          answers: {}, 
-          funAnswers: {},
-          awaitingAnswer: false,
-          formStage: 'basic',
-          currentQuestionIndex: 0
-        };
-      }
-      
-      // Seçimi kaydet
-      const selectedId = listReply.id;
-      const selectedTitle = listReply.title;
-      
-      if (listReply.description && listReply.description.includes('Şehir')) {
-        sessions[from].answers.city = selectedTitle;
-        console.log('Şehir seçildi:', selectedTitle);
-        try {
-          await sendWhatsappMessage(from, `Harika! ${selectedTitle} güzel bir şehir. 🏙️\n\nŞimdi yaş grubunuzu öğrenebilir miyim?`);
-          await sendRegistrationForm(from, 'age');
-        } catch (whatsappError) {
-          console.error('Yaş formu gönderme hatası:', whatsappError.message);
-        }
-      } else if (listReply.description && listReply.description.includes('Yaş')) {
-        sessions[from].answers.ageGroup = selectedTitle;
-        console.log('Yaş grubu seçildi:', selectedTitle);
-        try {
-          await sendWhatsappMessage(from, `Teşekkürler! ${selectedTitle} yaş grubundasınız. 📊\n\nSon olarak ilgi alanlarınızı öğrenebilir miyim?`);
-          await sendRegistrationForm(from, 'interests');
-        } catch (whatsappError) {
-          console.error('İlgi alanları formu gönderme hatası:', whatsappError.message);
-        }
-      } else if (listReply.description && listReply.description.includes('İlgi')) {
-        sessions[from].answers.interest = selectedTitle;
-        console.log('İlgi alanı seçildi:', selectedTitle);
-        try {
-          await sendWhatsappMessage(from, `Mükemmel! ${selectedTitle} ile ilgileniyorsunuz. 🎯\n\nKayıt formunuz tamamlandı! Şimdi arkadaşlık hikayenizi oluşturmaya başlayalım. Adınız nedir?`);
-        } catch (whatsappError) {
-          console.error('Tamamlama mesajı gönderme hatası:', whatsappError.message);
-        }
-      }
-      
-      return res.sendStatus(200);
-    }
     
     // Hızlı cevap butonları kontrolü
     if (message.interactive && message.interactive.type === 'button_reply') {
@@ -345,17 +262,9 @@ app.post('/webhook', express.json(), async (req, res) => {
           }
         }
         return res.sendStatus(200);
-      } else if (buttonText === 'Kayıt Ol') {
-        // Kayıt formunu başlat
-        try {
-          await sendWhatsappMessage(from, 'Harika! Kayıt formunu dolduralım. 🎯\n\nÖnce hangi şehirde yaşadığınızı öğrenebilir miyim?');
-          await sendRegistrationForm(from, 'city');
-        } catch (whatsappError) {
-          console.error('Kayıt formu başlatma hatası:', whatsappError.message);
-        }
-        return res.sendStatus(200);
       }
     }
+    
     if (!sessions[from]) {
       sessions[from] = { 
         answers: {}, 
@@ -369,13 +278,14 @@ app.post('/webhook', express.json(), async (req, res) => {
       try {
         await whatsappService.sendInteractiveMessage(from, 
           `Selam! 👋 Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤\n\nSana ve arkadaşına özel benzersiz bir hikaye oluşturmak için buradayım. Öncesinde sadece bir kaç soru sormam gerekiyor.`, 
-          ['Başlayalım!', 'Kayıt Ol', 'Şimdi Değil']
+          ['Başlayalım!', 'Şimdi Değil']
         );
       } catch (whatsappError) {
         console.error('Hoş geldin mesajı gönderme hatası:', whatsappError.message);
       }
       return res.sendStatus(200);
     }
+    
     const session = sessions[from];
     if (!canUseGemini(from)) {
       await sendWhatsappMessage(from, 'Günlük ücretsiz sohbet hakkınız doldu, yarın tekrar deneyin.');
@@ -387,8 +297,8 @@ app.post('/webhook', express.json(), async (req, res) => {
     let formState = getFormState(session);
     let imageFormState = getImageFormState(session);
     
-    let currentFields = session.formStage === 'basic' ? formFields : imageFormFields;
-    let currentAnswers = session.formStage === 'basic' ? session.answers : session.imageAnswers;
+    let currentFields = session.formStage === 'basic' ? formFields : funFormFields;
+    let currentAnswers = session.formStage === 'basic' ? session.answers : session.funAnswers;
     let nextField = currentFields.find(f => !currentAnswers[f.key]);
     
     let prompt = `${SYSTEM_PROMPT}\n\nFORM AŞAMASI: ${session.formStage === 'basic' ? 'TEMEL BİLGİLER' : 'RESİM OLUŞTURMA'}\n\nŞu ana kadar alınan bilgiler:\n${session.formStage === 'basic' ? formState : imageFormState || 'Henüz bilgi yok.'}\n\nKullanıcı cevabı: ${userInput}\n\nÖNEMLİ: Kullanıcı zaten bilgi verdiğinde, o bilgiyi kabul et ve bir sonraki soruya geç. Aynı soruyu tekrar sorma. Doğal ve samimi konuş.`;
@@ -401,8 +311,8 @@ app.post('/webhook', express.json(), async (req, res) => {
       const newInfoMatch = geminiResponse.match(/YENİ_BİLGİ:\s*([^\n]+)/i);
       if (newInfoMatch) {
         const newInfo = newInfoMatch[1];
-        const currentFields = session.formStage === 'basic' ? formFields : imageFormFields;
-        const currentAnswers = session.formStage === 'basic' ? session.answers : session.imageAnswers;
+        const currentFields = session.formStage === 'basic' ? formFields : funFormFields;
+        const currentAnswers = session.formStage === 'basic' ? session.answers : session.funAnswers;
         
         for (const field of currentFields) {
           const regex = new RegExp(`${field.label}:\\s*([^\n]+)`, 'i');
@@ -411,35 +321,6 @@ app.post('/webhook', express.json(), async (req, res) => {
             currentAnswers[field.key] = match[1].trim();
             console.log(`Yeni bilgi kaydedildi: ${field.key} = ${match[1].trim()}`);
           }
-        }
-      }
-      
-      // Manuel bilgi eşleştirme (Gemini bazen karıştırıyor)
-      if (session.formStage === 'image' && userInput.trim()) {
-        const input = userInput.trim().toLowerCase();
-        
-        // Arkadaş adı kontrolü
-        if (!session.imageAnswers.bestFriendName && input.length < 20 && !input.includes(' ')) {
-          session.imageAnswers.bestFriendName = userInput.trim();
-          console.log(`Manuel bilgi kaydedildi: bestFriendName = ${userInput.trim()}`);
-        }
-        
-        // Aktivite kontrolü
-        if (!session.imageAnswers.favoriteActivity && (input.includes('futbol') || input.includes('gokart') || input.includes('kitap') || input.includes('oyna'))) {
-          session.imageAnswers.favoriteActivity = userInput.trim();
-          console.log(`Manuel bilgi kaydedildi: favoriteActivity = ${userInput.trim()}`);
-        }
-        
-        // Ülke kontrolü
-        if (!session.imageAnswers.dreamDestination && (input.includes('italya') || input.includes('pisa') || input.includes('milano'))) {
-          session.imageAnswers.dreamDestination = userInput.trim();
-          console.log(`Manuel bilgi kaydedildi: dreamDestination = ${userInput.trim()}`);
-        }
-        
-        // Tarz kontrolü
-        if (!session.imageAnswers.favoriteStyle && (input.includes('gercekci') || input.includes('realistic') || input.includes('modern'))) {
-          session.imageAnswers.favoriteStyle = 'realistic';
-          console.log(`Manuel bilgi kaydedildi: favoriteStyle = realistic`);
         }
       }
       
@@ -457,9 +338,9 @@ app.post('/webhook', express.json(), async (req, res) => {
           session.currentQuestionIndex = 0;
           try {
             await whatsappService.sendInteractiveMessage(from, 
-            `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla" butonuna tıklayabilirsin.`, 
-            ['Tamamdır!', 'Atla']
-          );
+              `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla" butonuna tıklayabilirsin.`, 
+              ['Tamamdır!', 'Atla']
+            );
           } catch (whatsappError) {
             console.error('Geçiş mesajı gönderme hatası:', whatsappError.message);
           }
@@ -518,14 +399,13 @@ app.post('/webhook', express.json(), async (req, res) => {
           }
         }
       } else if (/IMAGE_FORM_TAMAMLANDI/i.test(geminiResponse) || 
-                 (session.formStage === 'image' && 
-                  session.imageAnswers.bestFriendName && 
-                  session.imageAnswers.favoriteActivity && 
-                  session.imageAnswers.dreamDestination && 
-                  session.imageAnswers.favoriteStyle)) {
+                 (session.formStage === 'fun' && 
+                  session.funAnswers.friendLikes && 
+                  session.funAnswers.youLike && 
+                  session.funAnswers.dreamPlace)) {
         // Resim formu tamamlandı - AI resim oluştur
         try {
-          const imagePrompt = `${session.answers.name} ve ${session.imageAnswers.bestFriendName} ${session.imageAnswers.dreamDestination} ülkesinde ${session.imageAnswers.favoriteActivity} yaparken. ${session.imageAnswers.favoriteStyle} tarzda, modern ve kaliteli bir resim. İki arkadaş mutlu ve eğleniyor.`;
+          const imagePrompt = `${session.answers.name} ve ${session.answers.friendName} ${session.funAnswers.dreamPlace} ülkesinde ${session.funAnswers.friendLikes} yaparken. Modern ve kaliteli bir resim. İki arkadaş mutlu ve eğleniyor.`;
           
           const images = await imagenService.generateImage(imagePrompt, {
             aspectRatio: '1:1',
@@ -535,7 +415,7 @@ app.post('/webhook', express.json(), async (req, res) => {
           if (images && images.length > 0) {
             try {
               await imagenService.sendImageToWhatsApp(from, images[0].imageData, 
-                `🎨 ${session.answers.name}! Senin için özel resmin hazır. ${session.imageAnswers.bestFriendName} ile ${session.imageAnswers.dreamDestination} hayalin!`);
+                `🎨 ${session.answers.name}! Senin için özel resmin hazır. ${session.answers.friendName} ile ${session.funAnswers.dreamPlace} hayalin!`);
             } catch (imageSendError) {
               console.error('Resim gönderme hatası:', imageSendError.message);
               await sendWhatsappMessage(from, 'Resim oluşturuldu ama gönderilemedi. Tekrar deneyeceğim.');
@@ -575,59 +455,6 @@ app.post('/webhook', express.json(), async (req, res) => {
 // WhatsApp mesaj gönderme fonksiyonu artık servis kullanıyor
 async function sendWhatsappMessage(to, text) {
   await whatsappService.sendMessage(to, text);
-}
-
-// Kayıt formu gönder
-async function sendRegistrationForm(to, formType) {
-  try {
-    let text, sections;
-    
-    switch (formType) {
-      case 'city':
-        text = 'Hangi şehirde yaşıyorsun? 🏙️';
-        sections = [{
-          title: 'Şehir Seçin',
-          rows: registrationOptions.cities.map(city => ({
-            id: city.id,
-            title: city.title,
-            description: 'Şehrinizi seçin'
-          }))
-        }];
-        break;
-        
-      case 'age':
-        text = 'Yaş grubunuz nedir? 📊';
-        sections = [{
-          title: 'Yaş Grubu',
-          rows: registrationOptions.ageGroups.map(age => ({
-            id: age.id,
-            title: age.title,
-            description: 'Yaş grubunuzu seçin'
-          }))
-        }];
-        break;
-        
-      case 'interests':
-        text = 'Hangi konulara ilgi duyuyorsun? 🎯';
-        sections = [{
-          title: 'İlgi Alanları',
-          rows: registrationOptions.interests.map(interest => ({
-            id: interest.id,
-            title: interest.title,
-            description: 'İlgi alanınızı seçin'
-          }))
-        }];
-        break;
-        
-      default:
-        throw new Error('Geçersiz form tipi');
-    }
-    
-    return await whatsappService.sendListMessage(to, text, sections);
-  } catch (error) {
-    console.error('Kayıt formu gönderme hatası:', error.message);
-    throw error;
-  }
 }
 
 const PORT = process.env.PORT || 3000;
