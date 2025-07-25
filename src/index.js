@@ -3,6 +3,8 @@ const app = express();
 const axios = require('axios');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const imagenService = require('./services/imagenService');
+const whatsappService = require('./services/whatsappService');
 
 // Kullanıcı oturumlarını hafızada tutmak için basit bir obje
 const sessions = {};
@@ -76,7 +78,7 @@ function getFormState(session) {
     }
   }
   return state.trim();
-}
+  }
 
 async function askGemini(prompt) {
   const model = gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -111,12 +113,72 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+// Imagen 2 resim oluşturma endpoint'i
+app.post('/generate-image', express.json(), async (req, res) => {
+  try {
+    const { prompt, phoneNumber, options = {} } = req.body;
+    
+    if (!prompt || !phoneNumber) {
+      return res.status(400).json({ error: 'Prompt ve telefon numarası gerekli' });
+    }
+
+    // Resim oluştur
+    const images = await imagenService.generateImage(prompt, options);
+    
+    if (images && images.length > 0) {
+      // İlk resmi WhatsApp'a gönder
+      await imagenService.sendImageToWhatsApp(phoneNumber, images[0].imageData, prompt);
+      
+      res.json({ 
+        success: true, 
+        message: 'Resim oluşturuldu ve gönderildi',
+        imageCount: images.length 
+      });
+    } else {
+      res.status(500).json({ error: 'Resim oluşturulamadı' });
+    }
+    
+  } catch (error) {
+    console.error('Resim oluşturma hatası:', error);
+    res.status(500).json({ error: 'Resim oluşturma başarısız' });
+  }
+});
+  
+// Resim düzenleme endpoint'i
+app.post('/edit-image', express.json(), async (req, res) => {
+  try {
+    const { imageData, prompt, phoneNumber, options = {} } = req.body;
+    
+    if (!imageData || !prompt || !phoneNumber) {
+      return res.status(400).json({ error: 'Resim, prompt ve telefon numarası gerekli' });
+      }
+      
+    // Resmi düzenle
+    const images = await imagenService.editImage(imageData, prompt, options);
+    
+    if (images && images.length > 0) {
+      await imagenService.sendImageToWhatsApp(phoneNumber, images[0].imageData, prompt);
+      
+      res.json({ 
+        success: true, 
+        message: 'Resim düzenlendi ve gönderildi' 
+      });
+    } else {
+      res.status(500).json({ error: 'Resim düzenlenemedi' });
+    }
+    
+  } catch (error) {
+    console.error('Resim düzenleme hatası:', error);
+    res.status(500).json({ error: 'Resim düzenleme başarısız' });
+  }
+});
+
 app.post('/webhook', express.json(), async (req, res) => {
   console.log('POST /webhook çağrıldı');
   const entry = req.body.entry?.[0];
   const changes = entry?.changes?.[0];
   const message = changes?.value?.messages?.[0];
-
+      
   if (message) {
     const from = message.from;
     if (!sessions[from]) {
@@ -127,11 +189,13 @@ app.post('/webhook', express.json(), async (req, res) => {
       await sendWhatsappMessage(from, 'Günlük ücretsiz sohbet hakkınız doldu, yarın tekrar deneyin.');
       return res.sendStatus(200);
     }
+    
     // Kullanıcıdan gelen cevabı ve formun mevcut durumunu Gemini'ye ilet
     let userInput = message.text?.body || '';
     let formState = getFormState(session);
     let nextField = formFields.find(f => !session.answers[f.key]);
     let prompt = `${SYSTEM_PROMPT}\n\nŞu ana kadar alınan bilgiler:\n${formState || 'Henüz bilgi yok.'}\n\nKullanıcıdan beklenen bilgi: ${nextField ? nextField.label : 'YOK'}\nKullanıcı cevabı: ${userInput}`;
+    
     try {
       const geminiResponse = (await askGemini(prompt)).trim();
       console.log('Gemini asistan cevabı:', geminiResponse);
@@ -157,8 +221,27 @@ app.post('/webhook', express.json(), async (req, res) => {
             phone: from,
             ...session.answers,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-          await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+              });
+          
+          // Form tamamlandıktan sonra kullanıcıya özel resim oluştur
+          const userPrompt = `${session.answers.name} ${session.answers.surname} için özel bir profil resmi oluştur. ${session.answers.city} şehrinde yaşayan, modern ve profesyonel görünümlü bir kişi.`;
+          
+          try {
+            const images = await imagenService.generateImage(userPrompt, {
+              aspectRatio: '1:1',
+              guidanceScale: 'high'
+            });
+            
+            if (images && images.length > 0) {
+              await imagenService.sendImageToWhatsApp(from, images[0].imageData, 
+                `Merhaba ${session.answers.name}! Form tamamlandı ve senin için özel bir resim oluşturdum. 🎉`);
+            }
+          } catch (imageError) {
+            console.error('Resim oluşturma hatası:', imageError);
+            // Resim oluşturulamazsa sadece teşekkür mesajı gönder
+            await sendWhatsappMessage(from, 'Teşekkürler! Bilgileriniz kaydedildi.');
+          }
+          
         } catch (err) {
           console.error('Firestore kayıt hatası:', err);
           await sendWhatsappMessage(from, 'Kaydederken bir hata oluştu. Lütfen tekrar deneyin.');
@@ -178,21 +261,9 @@ app.post('/webhook', express.json(), async (req, res) => {
   res.sendStatus(200);
 });
 
+// WhatsApp mesaj gönderme fonksiyonu artık servis kullanıyor
 async function sendWhatsappMessage(to, text) {
-  await axios.post(
-    `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: 'whatsapp',
-      to,
-      text: { body: text }
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
+  await whatsappService.sendMessage(to, text);
 }
 
 const PORT = process.env.PORT || 3000;

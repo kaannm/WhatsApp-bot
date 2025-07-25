@@ -9,7 +9,7 @@ const geminiService = {
   // Prompt'u AI için optimize et
   optimizePrompt: async (userMessage) => {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
         Aşağıdaki Türkçe kullanıcı mesajını, AI video üretimi için optimize edilmiş İngilizce prompt'a çevir.
@@ -111,7 +111,7 @@ const geminiService = {
   // Kullanıcı mesajını analiz et
   analyzeUserMessage: async (message) => {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
         Bu Türkçe mesajı analiz et ve JSON formatında döndür:
@@ -163,7 +163,7 @@ const geminiService = {
   // Video kalitesini değerlendir
   evaluateVideoQuality: async (videoUrl) => {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
         Bu video URL'sini değerlendir ve kalite skorunu ver (1-10):
@@ -193,6 +193,28 @@ const geminiService = {
     } catch (error) {
       logger.error('Video kalite değerlendirme hatası', { error: error.message });
       return 7; // Varsayılan skor
+    }
+  },
+
+  // Basit doğrulama fonksiyonu
+  simpleValidate: async (prompt) => {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const answer = response.text().trim();
+
+      logger.info('Basit doğrulama tamamlandı', {
+        prompt: prompt.substring(0, 100) + '...',
+        answer
+      });
+
+      return answer;
+
+    } catch (error) {
+      logger.error('Basit doğrulama hatası', { error: error.message });
+      return 'Uygun'; // Hata durumunda varsayılan olarak uygun kabul et
     }
   }
 };
