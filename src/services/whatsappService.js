@@ -88,6 +88,50 @@ const whatsappService = {
     }
   },
 
+  // WhatsApp Cloud API'ye liste mesajı gönder (kayıt formu için)
+  sendListMessage: async (to, text, sections) => {
+    try {
+      // Rate limiting için kısa bekleme
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const response = await axios.post(
+        `https://graph.facebook.com/v19.0/${config.whatsapp.phoneNumberId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to,
+          type: 'interactive',
+          interactive: {
+            type: 'list',
+            body: {
+              text: text
+            },
+            action: {
+              button: 'Kayıt Formu',
+              sections: sections
+            }
+          }
+        },
+        {
+          headers: { 
+            Authorization: `Bearer ${config.whatsapp.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+      
+      console.log('WhatsApp liste mesajı gönderildi:', { to, textLength: text.length, sectionsCount: sections.length });
+      return response.data;
+    } catch (error) {
+      console.error('WhatsApp liste mesajı gönderme hatası:', error.message, { 
+        to, 
+        status: error.response?.status,
+        data: error.response?.data 
+      });
+      throw error;
+    }
+  },
+
 // WhatsApp Cloud API'ye medya gönder
   sendMedia: async (to, base64Data, mimeType, filename, caption = '') => {
     try {

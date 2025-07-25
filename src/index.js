@@ -81,6 +81,39 @@ const funFormFields = [
   { key: 'dreamPlace', label: 'Hayal Yeriniz' }
 ];
 
+// Kayıt formu seçenekleri
+const registrationOptions = {
+  cities: [
+    { id: 'istanbul', title: 'İstanbul' },
+    { id: 'ankara', title: 'Ankara' },
+    { id: 'izmir', title: 'İzmir' },
+    { id: 'bursa', title: 'Bursa' },
+    { id: 'antalya', title: 'Antalya' },
+    { id: 'adana', title: 'Adana' },
+    { id: 'konya', title: 'Konya' },
+    { id: 'gaziantep', title: 'Gaziantep' },
+    { id: 'diyarbakir', title: 'Diyarbakır' },
+    { id: 'other', title: 'Diğer' }
+  ],
+  ageGroups: [
+    { id: '18-25', title: '18-25 yaş' },
+    { id: '26-35', title: '26-35 yaş' },
+    { id: '36-45', title: '36-45 yaş' },
+    { id: '46+', title: '46+ yaş' }
+  ],
+  interests: [
+    { id: 'sports', title: 'Spor' },
+    { id: 'music', title: 'Müzik' },
+    { id: 'travel', title: 'Seyahat' },
+    { id: 'food', title: 'Yemek' },
+    { id: 'technology', title: 'Teknoloji' },
+    { id: 'music', title: 'Müzik' },
+    { id: 'art', title: 'Sanat' },
+    { id: 'gaming', title: 'Oyun' },
+    { id: 'fitness', title: 'Fitness' }
+  ]
+};
+
 function getFormState(session) {
   let state = '';
   for (const field of formFields) {
@@ -203,6 +236,56 @@ app.post('/webhook', express.json(), async (req, res) => {
   if (message) {
     const from = message.from;
     
+    // Liste mesajları kontrolü (kayıt formu)
+    if (message.interactive && message.interactive.type === 'list_reply') {
+      const listReply = message.interactive.list_reply;
+      console.log('Liste seçimi yapıldı:', listReply);
+      
+      if (!sessions[from]) {
+        sessions[from] = { 
+          answers: {}, 
+          funAnswers: {},
+          awaitingAnswer: false,
+          formStage: 'basic',
+          currentQuestionIndex: 0
+        };
+      }
+      
+      // Seçimi kaydet
+      const selectedId = listReply.id;
+      const selectedTitle = listReply.title;
+      
+      if (listReply.description && listReply.description.includes('Şehir')) {
+        sessions[from].answers.city = selectedTitle;
+        console.log('Şehir seçildi:', selectedTitle);
+        try {
+          await sendWhatsappMessage(from, `Harika! ${selectedTitle} güzel bir şehir. 🏙️\n\nŞimdi yaş grubunuzu öğrenebilir miyim?`);
+          await sendRegistrationForm(from, 'age');
+        } catch (whatsappError) {
+          console.error('Yaş formu gönderme hatası:', whatsappError.message);
+        }
+      } else if (listReply.description && listReply.description.includes('Yaş')) {
+        sessions[from].answers.ageGroup = selectedTitle;
+        console.log('Yaş grubu seçildi:', selectedTitle);
+        try {
+          await sendWhatsappMessage(from, `Teşekkürler! ${selectedTitle} yaş grubundasınız. 📊\n\nSon olarak ilgi alanlarınızı öğrenebilir miyim?`);
+          await sendRegistrationForm(from, 'interests');
+        } catch (whatsappError) {
+          console.error('İlgi alanları formu gönderme hatası:', whatsappError.message);
+        }
+      } else if (listReply.description && listReply.description.includes('İlgi')) {
+        sessions[from].answers.interest = selectedTitle;
+        console.log('İlgi alanı seçildi:', selectedTitle);
+        try {
+          await sendWhatsappMessage(from, `Mükemmel! ${selectedTitle} ile ilgileniyorsunuz. 🎯\n\nKayıt formunuz tamamlandı! Şimdi arkadaşlık hikayenizi oluşturmaya başlayalım. Adınız nedir?`);
+        } catch (whatsappError) {
+          console.error('Tamamlama mesajı gönderme hatası:', whatsappError.message);
+        }
+      }
+      
+      return res.sendStatus(200);
+    }
+    
     // Hızlı cevap butonları kontrolü
     if (message.interactive && message.interactive.type === 'button_reply') {
       const buttonText = message.interactive.button_reply.title;
@@ -262,6 +345,15 @@ app.post('/webhook', express.json(), async (req, res) => {
           }
         }
         return res.sendStatus(200);
+      } else if (buttonText === 'Kayıt Ol') {
+        // Kayıt formunu başlat
+        try {
+          await sendWhatsappMessage(from, 'Harika! Kayıt formunu dolduralım. 🎯\n\nÖnce hangi şehirde yaşadığınızı öğrenebilir miyim?');
+          await sendRegistrationForm(from, 'city');
+        } catch (whatsappError) {
+          console.error('Kayıt formu başlatma hatası:', whatsappError.message);
+        }
+        return res.sendStatus(200);
       }
     }
     if (!sessions[from]) {
@@ -277,7 +369,7 @@ app.post('/webhook', express.json(), async (req, res) => {
       try {
         await whatsappService.sendInteractiveMessage(from, 
           `Selam! 👋 Bir Arkadaşlık Hikayesi'ne hoş geldin. 🥤\n\nSana ve arkadaşına özel benzersiz bir hikaye oluşturmak için buradayım. Öncesinde sadece bir kaç soru sormam gerekiyor.`, 
-          ['Başlayalım!', 'Şimdi Değil']
+          ['Başlayalım!', 'Kayıt Ol', 'Şimdi Değil']
         );
       } catch (whatsappError) {
         console.error('Hoş geldin mesajı gönderme hatası:', whatsappError.message);
@@ -483,6 +575,59 @@ app.post('/webhook', express.json(), async (req, res) => {
 // WhatsApp mesaj gönderme fonksiyonu artık servis kullanıyor
 async function sendWhatsappMessage(to, text) {
   await whatsappService.sendMessage(to, text);
+}
+
+// Kayıt formu gönder
+async function sendRegistrationForm(to, formType) {
+  try {
+    let text, sections;
+    
+    switch (formType) {
+      case 'city':
+        text = 'Hangi şehirde yaşıyorsun? 🏙️';
+        sections = [{
+          title: 'Şehir Seçin',
+          rows: registrationOptions.cities.map(city => ({
+            id: city.id,
+            title: city.title,
+            description: 'Şehrinizi seçin'
+          }))
+        }];
+        break;
+        
+      case 'age':
+        text = 'Yaş grubunuz nedir? 📊';
+        sections = [{
+          title: 'Yaş Grubu',
+          rows: registrationOptions.ageGroups.map(age => ({
+            id: age.id,
+            title: age.title,
+            description: 'Yaş grubunuzu seçin'
+          }))
+        }];
+        break;
+        
+      case 'interests':
+        text = 'Hangi konulara ilgi duyuyorsun? 🎯';
+        sections = [{
+          title: 'İlgi Alanları',
+          rows: registrationOptions.interests.map(interest => ({
+            id: interest.id,
+            title: interest.title,
+            description: 'İlgi alanınızı seçin'
+          }))
+        }];
+        break;
+        
+      default:
+        throw new Error('Geçersiz form tipi');
+    }
+    
+    return await whatsappService.sendListMessage(to, text, sections);
+  } catch (error) {
+    console.error('Kayıt formu gönderme hatası:', error.message);
+    throw error;
+  }
 }
 
 const PORT = process.env.PORT || 3000;
