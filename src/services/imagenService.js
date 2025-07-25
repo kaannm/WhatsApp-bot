@@ -1,246 +1,154 @@
 const axios = require('axios');
+const { GoogleAuth } = require('google-auth-library');
+const config = require('../config');
 
-class ImagenService {
-  constructor() {
-    this.projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
-    this.accessToken = null;
-    this.tokenExpiry = null;
-  }
+// Google Cloud authentication
+const auth = new GoogleAuth({
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  scopes: ['https://www.googleapis.com/auth/cloud-platform']
+});
 
-  async getAccessToken() {
-    // Token'ın geçerliliğini kontrol et
-    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-      return this.accessToken;
-    }
-
-    try {
-      // Service account key ile token al
-      const { GoogleAuth } = require('google-auth-library');
-      
-      const auth = new GoogleAuth({
-        keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || 'whatsappbot-c6e5f-firebase-adminsdk-fbsvc-e718facc39.json',
-        scopes: ['https://www.googleapis.com/auth/cloud-platform']
-      });
-      
-      const client = await auth.getClient();
-      const token = await client.getAccessToken();
-      
-      this.accessToken = token.token;
-      this.tokenExpiry = Date.now() + (3600 * 1000); // 1 saat geçerli
-      
-      return this.accessToken;
-    } catch (error) {
-      console.error('Google Cloud token alma hatası:', error);
-      // Resim oluşturma olmadan devam et
-      throw new Error('Google Cloud kimlik doğrulama hatası');
-    }
-  }
-
-  async generateImage(prompt, options = {}) {
-    try {
-      const token = await this.getAccessToken();
-      
-      const requestBody = {
-        instances: [
-          {
-            prompt: prompt
-          }
-        ],
-        parameters: {
-          sampleCount: options.sampleCount || 1,
-          guidanceScale: options.guidanceScale || 'medium',
-          aspectRatio: options.aspectRatio || '1:1'
-        }
-      };
-
-      // Negative prompt varsa ekle
-      if (options.negativePrompt) {
-        requestBody.parameters.negativePrompt = options.negativePrompt;
-      }
-
-      const response = await axios.post(
-        `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/imagegeneration@006:predict`,
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      return response.data.predictions.map(prediction => ({
-        imageData: prediction.bytesBase64Encoded,
-        mimeType: prediction.mimeType
-      }));
-
-    } catch (error) {
-      console.error('Imagen 2 resim oluşturma hatası:', error.response?.data || error.message);
-      throw new Error('Resim oluşturulamadı');
-    }
-  }
-
-  async editImage(imageData, prompt, options = {}) {
-    try {
-      const token = await this.getAccessToken();
-      
-      const requestBody = {
-        instances: [
-          {
-            prompt: prompt,
-            image: {
-              bytesBase64Encoded: imageData
-            }
-          }
-        ],
-        parameters: {
-          sampleCount: options.sampleCount || 1,
-          editMode: options.editMode || 'product-image',
-          guidanceScale: options.guidanceScale || 60
-        }
-      };
-
-      // Mask varsa ekle
-      if (options.mask) {
-        requestBody.instances[0].mask = {
-          bytesBase64Encoded: options.mask
-        };
-      }
-
-      const response = await axios.post(
-        `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/imagegeneration@006:predict`,
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      return response.data.predictions.map(prediction => ({
-        imageData: prediction.bytesBase64Encoded,
-        mimeType: prediction.mimeType
-      }));
-
-    } catch (error) {
-      console.error('Imagen 2 resim düzenleme hatası:', error.response?.data || error.message);
-      throw new Error('Resim düzenlenemedi');
-    }
-  }
-
-  async inpaintImage(imageData, maskData, prompt, options = {}) {
-    try {
-      const token = await this.getAccessToken();
-      
-      const requestBody = {
-        instances: [
-          {
-            prompt: prompt,
-            image: {
-              bytesBase64Encoded: imageData
-            },
-            mask: {
-              bytesBase64Encoded: maskData
-            }
-          }
-        ],
-        parameters: {
-          sampleCount: options.sampleCount || 1,
-          editMode: options.editMode || 'inpainting-insert',
-          guidanceScale: options.guidanceScale || 60
-        }
-      };
-
-      const response = await axios.post(
-        `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/imagegeneration@006:predict`,
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      return response.data.predictions.map(prediction => ({
-        imageData: prediction.bytesBase64Encoded,
-        mimeType: prediction.mimeType
-      }));
-
-    } catch (error) {
-      console.error('Imagen 2 inpainting hatası:', error.response?.data || error.message);
-      throw new Error('Inpainting işlemi başarısız');
-    }
-  }
-
-  async removeBackground(imageData) {
-    try {
-      const token = await this.getAccessToken();
-      
-      const requestBody = {
-        instances: [
-          {
-            image: {
-              bytesBase64Encoded: imageData
-            }
-          }
-        ],
-        parameters: {
-          sampleCount: 1,
-          editMode: 'inpainting-remove',
-          maskType: 'background'
-        }
-      };
-
-      const response = await axios.post(
-        `https://us-central1-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/us-central1/publishers/google/models/imagegeneration@006:predict`,
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      return response.data.predictions[0];
-
-    } catch (error) {
-      console.error('Imagen 2 arka plan kaldırma hatası:', error.response?.data || error.message);
-      throw new Error('Arka plan kaldırılamadı');
-    }
-  }
-
-  // Base64 resmi WhatsApp'a göndermek için hazırla
-  async sendImageToWhatsApp(phoneNumber, imageData, caption = '') {
-    try {
-      const response = await axios.post(
-        `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-        {
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: phoneNumber,
-          type: 'image',
-          image: {
-            link: `data:image/png;base64,${imageData}`,
-            caption: caption
-          }
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      console.error('WhatsApp resim gönderme hatası:', error.response?.data || error.message);
-      throw new Error('Resim gönderilemedi');
-    }
+// Access token al
+async function getAccessToken() {
+  try {
+    const client = await auth.getClient();
+    const token = await client.getAccessToken();
+    return token.token;
+  } catch (error) {
+    console.error('Google Cloud token alma hatası:', error.message);
+    throw error;
   }
 }
 
-module.exports = new ImagenService(); 
+// Imagen 2 ile resim oluştur
+async function generateImage(prompt, options = {}) {
+  try {
+    const accessToken = await getAccessToken();
+    
+    const response = await axios.post(
+      'https://us-central1-aiplatform.googleapis.com/v1/projects/your-project-id/locations/us-central1/publishers/google/models/imagen-2.0:predict',
+      {
+        instances: [{
+          prompt: prompt,
+          aspectRatio: options.aspectRatio || '1:1',
+          guidanceScale: options.guidanceScale || 'high',
+          sampleCount: options.sampleCount || 1
+        }]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
+    
+    console.log('Imagen 2 resim oluşturuldu:', { promptLength: prompt.length, options });
+    
+    // Base64 resimleri döndür
+    return response.data.predictions.map(prediction => ({
+      imageData: prediction.bytesBase64Encoded
+    }));
+    
+  } catch (error) {
+    console.error('Imagen 2 resim oluşturma hatası:', error.message);
+    throw error;
+  }
+}
+
+// Resmi düzenle
+async function editImage(base64Image, prompt, options = {}) {
+  try {
+    const accessToken = await getAccessToken();
+    
+    const response = await axios.post(
+      'https://us-central1-aiplatform.googleapis.com/v1/projects/your-project-id/locations/us-central1/publishers/google/models/imagen-2.0:edit',
+      {
+        instances: [{
+          image: {
+            bytesBase64Encoded: base64Image
+          },
+          prompt: prompt,
+          aspectRatio: options.aspectRatio || '1:1',
+          guidanceScale: options.guidanceScale || 'high'
+        }]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
+    
+    console.log('Imagen 2 resim düzenlendi:', { promptLength: prompt.length, options });
+    
+    return response.data.predictions.map(prediction => ({
+      imageData: prediction.bytesBase64Encoded
+    }));
+    
+  } catch (error) {
+    console.error('Imagen 2 resim düzenleme hatası:', error.message);
+    throw error;
+  }
+}
+
+// Resmi WhatsApp'a gönder
+async function sendImageToWhatsApp(phoneNumber, base64Image, caption = '') {
+  try {
+    // 1. Resmi WhatsApp'a yükle
+    const uploadResponse = await axios.post(
+      `https://graph.facebook.com/v19.0/${config.whatsapp.phoneNumberId}/media`,
+      {
+        messaging_product: 'whatsapp',
+        file: base64Image,
+        type: 'image/jpeg',
+        filename: 'generated_image.jpg'
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${config.whatsapp.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+    
+    const mediaId = uploadResponse.data.id;
+    
+    // 2. Resmi WhatsApp'a gönder
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${config.whatsapp.phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'image',
+        image: {
+          id: mediaId,
+          caption: caption
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${config.whatsapp.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+    
+    console.log('Resim WhatsApp\'a gönderildi:', { phoneNumber, captionLength: caption.length });
+    
+  } catch (error) {
+    console.error('WhatsApp resim gönderme hatası:', error.message);
+    throw error;
+  }
+}
+
+module.exports = {
+  generateImage,
+  editImage,
+  sendImageToWhatsApp
+}; 
