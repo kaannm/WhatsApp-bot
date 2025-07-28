@@ -510,6 +510,7 @@ app.post('/webhook', async (req, res) => {
             await sendWhatsappMessage(from, nextQuestion.text);
           }
         }
+        return res.sendStatus(200);
       } else {
         // Gemini'nin cevabını ilet
         const cleanResponse = geminiResponse.replace(/YENİ_BİLGİ:.*$/gim, '').trim();
