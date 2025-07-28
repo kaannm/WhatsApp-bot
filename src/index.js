@@ -386,7 +386,7 @@ app.post('/webhook', async (req, res) => {
     // Yeni kullanıcı - hoş geldin mesajı
     if (!sessions[from]) {
       sessions[from] = { 
-        stage: FORM_STAGES.WELCOME,
+        stage: FORM_STAGES.NAME,
         answers: {},
         funAnswers: {},
         photos: [],
