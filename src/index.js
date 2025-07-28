@@ -381,13 +381,12 @@ app.post('/webhook', async (req, res) => {
     if (message.image) {
       if (session.stage === FORM_STAGES.PHOTO_REQUEST) {
         try {
-          // WhatsApp'tan fotoğrafı indir
+          // WhatsApp medya URL'sini al
           const mediaUrl = await whatsappService.getMediaUrl(message.image.id);
-          const imageData = await whatsappService.downloadMediaAsBase64(mediaUrl);
           
-          // Cloudinary'ye yükle
+          // Cloudinary'ye direkt URL'den yükle
           const publicId = `whatsapp-bot/${session.answers.firstName || 'user'}_${Date.now()}`;
-          const uploadResult = await cloudinaryService.uploadImage(imageData, publicId);
+          const uploadResult = await cloudinaryService.uploadFromUrl(mediaUrl, publicId);
           
           // URL'yi session'a kaydet
           session.photos.push({

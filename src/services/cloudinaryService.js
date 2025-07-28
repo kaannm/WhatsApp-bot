@@ -17,19 +17,13 @@ class CloudinaryService {
         throw new Error('Cloudinary konfigürasyonu eksik');
       }
 
-      // Base64 data URL'ini düzenle
-      let base64Data = imageData;
-      if (imageData.startsWith('data:image')) {
-        base64Data = imageData.split(',')[1];
-      }
-
       // Public ID oluştur
       const timestamp = Date.now();
       const finalPublicId = publicId || `whatsapp-bot/${timestamp}`;
 
       // Cloudinary'ye yükle
       const uploadResult = await cloudinary.uploader.upload(
-        `data:image/jpeg;base64,${base64Data}`,
+        imageData,
         {
           public_id: finalPublicId,
           folder: 'whatsapp-bot',
@@ -52,6 +46,44 @@ class CloudinaryService {
     } catch (error) {
       console.error('Cloudinary yükleme hatası:', error.message);
       throw new Error(`Cloudinary yükleme hatası: ${error.message}`);
+    }
+  }
+
+  async uploadFromUrl(imageUrl, publicId = null) {
+    try {
+      if (!config.cloudinary.cloudName || !config.cloudinary.apiKey || !config.cloudinary.apiSecret) {
+        throw new Error('Cloudinary konfigürasyonu eksik');
+      }
+
+      // Public ID oluştur
+      const timestamp = Date.now();
+      const finalPublicId = publicId || `whatsapp-bot/${timestamp}`;
+
+      // URL'den Cloudinary'ye yükle
+      const uploadResult = await cloudinary.uploader.upload(
+        imageUrl,
+        {
+          public_id: finalPublicId,
+          folder: 'whatsapp-bot',
+          resource_type: 'image',
+          transformation: [
+            { width: 800, height: 800, crop: 'limit' },
+            { quality: 'auto', fetch_format: 'auto' }
+          ]
+        }
+      );
+
+      return {
+        success: true,
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        assetId: uploadResult.asset_id,
+        timestamp: timestamp
+      };
+
+    } catch (error) {
+      console.error('Cloudinary URL yükleme hatası:', error.message);
+      throw new Error(`Cloudinary URL yükleme hatası: ${error.message}`);
     }
   }
 
