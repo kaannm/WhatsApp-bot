@@ -304,7 +304,7 @@ app.post('/webhook', async (req, res) => {
       
       const selectedTitle = listReply.title;
       
-      if (listReply.description && listReply.description.includes('Şehir')) {
+      if (listReply.description && (listReply.description.includes('Şehir') || listReply.description.includes('Şehrinizi'))) {
         sessions[from].answers.city = selectedTitle;
         console.log('Şehir seçildi:', selectedTitle);
         try {
@@ -313,7 +313,7 @@ app.post('/webhook', async (req, res) => {
         } catch (whatsappError) {
           console.error('Yaş formu gönderme hatası:', whatsappError.message);
         }
-      } else if (listReply.description && listReply.description.includes('Yaş')) {
+      } else if (listReply.description && (listReply.description.includes('Yaş') || listReply.description.includes('Yaş grubunuzu'))) {
         sessions[from].answers.ageGroup = selectedTitle;
         console.log('Yaş grubu seçildi:', selectedTitle);
         try {
@@ -322,7 +322,7 @@ app.post('/webhook', async (req, res) => {
         } catch (whatsappError) {
           console.error('İlgi alanları formu gönderme hatası:', whatsappError.message);
         }
-      } else if (listReply.description && listReply.description.includes('İlgi')) {
+      } else if (listReply.description && (listReply.description.includes('İlgi') || listReply.description.includes('İlgi alanlarınızı'))) {
         sessions[from].answers.interest = selectedTitle;
         console.log('İlgi alanı seçildi:', selectedTitle);
         try {
