@@ -427,8 +427,20 @@ app.post('/webhook', async (req, res) => {
       return res.sendStatus(200);
       
     } catch (err) {
-      console.error('Gemini API hatası:', err);
-      await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+      console.error('API hatası:', err);
+      
+      // WhatsApp authentication hatası kontrolü
+      if (err.message.includes('WhatsApp token geçersiz')) {
+        console.error('WhatsApp token sorunu tespit edildi');
+        // Bu durumda kullanıcıya bilgi veremeyiz çünkü WhatsApp çalışmıyor
+        return res.sendStatus(500);
+      }
+      
+      try {
+        await sendWhatsappMessage(from, 'Servisimiz şu anda müsait değil, lütfen biraz sonra tekrar deneyin.');
+      } catch (whatsappError) {
+        console.error('Hata mesajı gönderilemedi:', whatsappError.message);
+      }
     }
   }
   

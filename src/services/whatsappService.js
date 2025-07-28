@@ -33,6 +33,13 @@ const sendMessage = async (to, text) => {
       status: error.response?.status,
       data: error.response?.data 
     });
+    
+    // Authentication hatası kontrolü
+    if (error.response?.status === 401) {
+      console.error('WhatsApp Authentication Error: Token geçersiz veya süresi dolmuş');
+      throw new Error('WhatsApp token geçersiz. Lütfen token\'ı yenileyin.');
+    }
+    
     throw error;
   }
 };
@@ -90,7 +97,17 @@ const getMediaUrl = async (mediaId) => {
     
     return response.data.url;
   } catch (error) {
-    console.error('Medya URL alma hatası:', error.message);
+    console.error('Medya URL alma hatası:', error.message, {
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    
+    // Authentication hatası kontrolü
+    if (error.response?.status === 401) {
+      console.error('WhatsApp Authentication Error: Token geçersiz veya süresi dolmuş');
+      throw new Error('WhatsApp token geçersiz. Lütfen token\'ı yenileyin.');
+    }
+    
     throw error;
   }
 };
