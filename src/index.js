@@ -150,64 +150,34 @@ async function sendWhatsAppFlow(to) {
 // Kayıt formu gönder (fallback - List Messages)
 async function sendRegistrationForm(to, formType) {
   try {
-    let text, sections;
+    let text;
     
     switch (formType) {
       case 'lastName':
         text = 'Soyadınız nedir? 📝';
-        sections = [{
-          title: 'Soyadınızı Yazın',
-          rows: [
-            { id: 'custom', title: 'Kendi cevabım', description: 'Soyadınızı yazın' }
-          ]
-        }];
         break;
         
       case 'email':
         text = 'E-posta adresiniz nedir? 📧';
-        sections = [{
-          title: 'E-posta Adresinizi Yazın',
-          rows: [
-            { id: 'custom', title: 'Kendi cevabım', description: 'E-posta adresinizi yazın' }
-          ]
-        }];
         break;
         
       case 'phone':
         text = 'Telefon numaranız nedir? 📱';
-        sections = [{
-          title: 'Telefon Numaranızı Yazın',
-          rows: [
-            { id: 'custom', title: 'Kendi cevabım', description: 'Telefon numaranızı yazın' }
-          ]
-        }];
         break;
         
       case 'age':
         text = 'Yaşınız nedir? 📊';
-        sections = [{
-          title: 'Yaşınızı Yazın',
-          rows: [
-            { id: 'custom', title: 'Kendi cevabım', description: 'Yaşınızı yazın' }
-          ]
-        }];
         break;
         
       case 'city':
         text = 'Hangi şehirde yaşıyorsun? 🏙️';
-        sections = [{
-          title: 'Şehrinizi Yazın',
-          rows: [
-            { id: 'custom', title: 'Kendi cevabım', description: 'Şehrinizi yazın' }
-          ]
-        }];
         break;
         
       default:
         throw new Error('Geçersiz form tipi');
     }
     
-    return await whatsappService.sendListMessage(to, text, sections);
+    return await whatsappService.sendMessage(to, text);
   } catch (error) {
     console.error('Kayıt formu gönderme hatası:', error.message);
     throw error;
@@ -305,97 +275,7 @@ app.post('/webhook', async (req, res) => {
       return res.sendStatus(200);
     }
     
-    // Liste mesajları kontrolü (fallback kayıt formu)
-    if (message.interactive && message.interactive.type === 'list_reply') {
-      const listReply = message.interactive.list_reply;
-      console.log('Liste seçimi yapıldı:', listReply);
-      
-      if (!sessions[from]) {
-        sessions[from] = { 
-          stage: FORM_STAGES.REGISTRATION,
-          answers: {},
-          funAnswers: {},
-          photos: [],
-          currentQuestionIndex: 0
-        };
-      }
-      
-      const selectedTitle = listReply.title;
-      
-      if (listReply.description && (listReply.description.includes('Soyad') || listReply.description.includes('Soyadınız'))) {
-        if (selectedTitle === 'Kendi cevabım') {
-          await sendWhatsappMessage(from, `Lütfen soyadınızı yazın:`);
-          sessions[from].waitingFor = 'lastName';
-        } else {
-          sessions[from].answers.lastName = selectedTitle;
-          console.log('Soyad seçildi:', selectedTitle);
-          try {
-            await sendWhatsappMessage(from, `Harika! ${selectedTitle} soyadınız. 📝\n\nŞimdi e-posta adresinizi öğrenebilir miyim?`);
-            await sendRegistrationForm(from, 'email');
-          } catch (whatsappError) {
-            console.error('E-posta formu gönderme hatası:', whatsappError.message);
-          }
-        }
-      } else if (listReply.description && (listReply.description.includes('E-posta') || listReply.description.includes('Email'))) {
-        if (selectedTitle === 'Kendi cevabım') {
-          await sendWhatsappMessage(from, `Lütfen e-posta adresinizi yazın:`);
-          sessions[from].waitingFor = 'email';
-        } else {
-          sessions[from].answers.email = selectedTitle;
-          console.log('E-posta seçildi:', selectedTitle);
-          try {
-            await sendWhatsappMessage(from, `Teşekkürler! ${selectedTitle} e-posta adresiniz. 📧\n\nŞimdi telefon numaranızı öğrenebilir miyim?`);
-            await sendRegistrationForm(from, 'phone');
-          } catch (whatsappError) {
-            console.error('Telefon formu gönderme hatası:', whatsappError.message);
-          }
-        }
-      } else if (listReply.description && (listReply.description.includes('Telefon') || listReply.description.includes('Numara'))) {
-        if (selectedTitle === 'Kendi cevabım') {
-          await sendWhatsappMessage(from, `Lütfen telefon numaranızı yazın:`);
-          sessions[from].waitingFor = 'phone';
-        } else {
-          sessions[from].answers.phone = selectedTitle;
-          console.log('Telefon seçildi:', selectedTitle);
-          try {
-            await sendWhatsappMessage(from, `Mükemmel! ${selectedTitle} telefon numaranız. 📱\n\nŞimdi yaş grubunuzu öğrenebilir miyim?`);
-            await sendRegistrationForm(from, 'age');
-          } catch (whatsappError) {
-            console.error('Yaş formu gönderme hatası:', whatsappError.message);
-          }
-        }
-      } else if (listReply.description && (listReply.description.includes('Yaş') || listReply.description.includes('Yaşınız'))) {
-        if (selectedTitle === 'Kendi cevabım') {
-          await sendWhatsappMessage(from, `Lütfen yaşınızı yazın:`);
-          sessions[from].waitingFor = 'age';
-        } else {
-          sessions[from].answers.ageGroup = selectedTitle;
-          console.log('Yaş seçildi:', selectedTitle);
-          try {
-            await sendWhatsappMessage(from, `Teşekkürler! ${selectedTitle} yaşındasınız. 📊\n\nSon olarak şehrinizi öğrenebilir miyim?`);
-            await sendRegistrationForm(from, 'city');
-          } catch (whatsappError) {
-            console.error('Yaş formu gönderme hatası:', whatsappError.message);
-          }
-        }
-      } else if (listReply.description && (listReply.description.includes('Şehir') || listReply.description.includes('Şehrinizi'))) {
-        if (selectedTitle === 'Kendi cevabım') {
-          await sendWhatsappMessage(from, `Lütfen şehrinizi yazın:`);
-          sessions[from].waitingFor = 'city';
-        } else {
-          sessions[from].answers.city = selectedTitle;
-          console.log('Şehir seçildi:', selectedTitle);
-          try {
-            await sendWhatsappMessage(from, `Harika! ${selectedTitle} güzel bir şehir. 🏙️\n\nKayıt formunuz tamamlandı! Şimdi eğlenceli sorulara geçelim.\n\nİlk soru: ${funQuestions[0].text}`);
-            sessions[from].stage = FORM_STAGES.FUN_QUESTIONS;
-          } catch (whatsappError) {
-            console.error('Tamamlama mesajı gönderme hatası:', whatsappError.message);
-          }
-        }
-      }
-      
-      return res.sendStatus(200);
-    }
+
     
     // Template button response kontrolü
     if (message.interactive && message.interactive.type === 'button_reply') {
@@ -515,13 +395,18 @@ app.post('/webhook', async (req, res) => {
             }
       
       // Kayıt formu text input'ları kontrolü
-      if (session.waitingFor) {
-        console.log(`Text input alınıyor: ${session.waitingFor} = ${userInput}`);
+      if (session.stage === FORM_STAGES.REGISTRATION) {
+        console.log(`Kayıt formu text input: ${userInput}`);
         
-        switch (session.waitingFor) {
+        // Hangi alanı beklediğimizi kontrol et
+        if (!sessions[from].currentField) {
+          sessions[from].currentField = 'lastName';
+        }
+        
+        switch (sessions[from].currentField) {
           case 'lastName':
             sessions[from].answers.lastName = userInput.trim();
-            delete sessions[from].waitingFor;
+            sessions[from].currentField = 'email';
             try {
               await sendWhatsappMessage(from, `Harika! ${userInput.trim()} soyadınız. 📝\n\nŞimdi e-posta adresinizi öğrenebilir miyim?`);
               await sendRegistrationForm(from, 'email');
@@ -532,7 +417,7 @@ app.post('/webhook', async (req, res) => {
             
           case 'email':
             sessions[from].answers.email = userInput.trim();
-            delete sessions[from].waitingFor;
+            sessions[from].currentField = 'phone';
             try {
               await sendWhatsappMessage(from, `Teşekkürler! ${userInput.trim()} e-posta adresiniz. 📧\n\nŞimdi telefon numaranızı öğrenebilir miyim?`);
               await sendRegistrationForm(from, 'phone');
@@ -543,7 +428,7 @@ app.post('/webhook', async (req, res) => {
             
           case 'phone':
             sessions[from].answers.phone = userInput.trim();
-            delete sessions[from].waitingFor;
+            sessions[from].currentField = 'age';
             try {
               await sendWhatsappMessage(from, `Mükemmel! ${userInput.trim()} telefon numaranız. 📱\n\nŞimdi yaşınızı öğrenebilir miyim?`);
               await sendRegistrationForm(from, 'age');
@@ -554,7 +439,7 @@ app.post('/webhook', async (req, res) => {
             
           case 'age':
             sessions[from].answers.ageGroup = userInput.trim();
-            delete sessions[from].waitingFor;
+            sessions[from].currentField = 'city';
             try {
               await sendWhatsappMessage(from, `Teşekkürler! ${userInput.trim()} yaşındasınız. 📊\n\nSon olarak şehrinizi öğrenebilir miyim?`);
               await sendRegistrationForm(from, 'city');
@@ -565,7 +450,7 @@ app.post('/webhook', async (req, res) => {
             
           case 'city':
             sessions[from].answers.city = userInput.trim();
-            delete sessions[from].waitingFor;
+            delete sessions[from].currentField;
             try {
               await sendWhatsappMessage(from, `Harika! ${userInput.trim()} güzel bir şehir. 🏙️\n\nKayıt formunuz tamamlandı! Şimdi eğlenceli sorulara geçelim.\n\nİlk soru: ${funQuestions[0].text}`);
               sessions[from].stage = FORM_STAGES.FUN_QUESTIONS;
