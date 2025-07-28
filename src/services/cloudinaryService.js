@@ -17,13 +17,19 @@ class CloudinaryService {
         throw new Error('Cloudinary konfigürasyonu eksik');
       }
 
+      // Base64 data URL'ini düzenle
+      let base64Data = imageData;
+      if (imageData.startsWith('data:image')) {
+        base64Data = imageData.split(',')[1];
+      }
+
       // Public ID oluştur
       const timestamp = Date.now();
       const finalPublicId = publicId || `whatsapp-bot/${timestamp}`;
 
       // Cloudinary'ye yükle
       const uploadResult = await cloudinary.uploader.upload(
-        imageData,
+        `data:image/jpeg;base64,${base64Data}`,
         {
           public_id: finalPublicId,
           folder: 'whatsapp-bot',
