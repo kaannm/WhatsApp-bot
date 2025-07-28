@@ -349,11 +349,11 @@ app.post('/webhook', async (req, res) => {
     if (message.image) {
       if (session.stage === FORM_STAGES.PHOTO_REQUEST) {
         try {
-          const mediaUrl = await whatsappService.getMediaUrl(message.image.id);
-          const imageData = await whatsappService.downloadMediaAsBase64(mediaUrl);
+          // Medya indirme geçici olarak devre dışı
+          console.log(`Fotoğraf alındı (medya indirme devre dışı): ${session.photos.length + 1}/2`);
           
-          session.photos.push(imageData);
-          console.log(`Fotoğraf alındı: ${session.photos.length}/2`);
+          // Geçici olarak boş data ekle
+          session.photos.push('photo_data_placeholder');
           
           if (session.photos.length === 1) {
             const friendName = session.answers.friendName || 'arkadaşının';
