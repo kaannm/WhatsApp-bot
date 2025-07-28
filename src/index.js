@@ -199,7 +199,53 @@ async function sendWhatsappMessage(to, text) {
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'WhatsApp Bot çalışıyor!' });
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'WhatsApp Bot çalışıyor!',
+    whatsapp: {
+      phoneNumberId: config.whatsapp.phoneNumberId ? 'Set' : 'Not Set',
+      accessToken: config.whatsapp.accessToken ? 'Set' : 'Not Set',
+      verifyToken: config.whatsapp.verifyToken ? 'Set' : 'Not Set'
+    }
+  });
+});
+
+// WhatsApp token test endpoint'i
+app.get('/test-whatsapp', async (req, res) => {
+  try {
+    if (!config.whatsapp.accessToken) {
+      return res.status(400).json({ error: 'WhatsApp access token bulunamadı' });
+    }
+    
+    if (!config.whatsapp.phoneNumberId) {
+      return res.status(400).json({ error: 'WhatsApp phone number ID bulunamadı' });
+    }
+    
+    // WhatsApp API'yi test et
+    const axios = require('axios');
+    const response = await axios.get(
+      `https://graph.facebook.com/v19.0/${config.whatsapp.phoneNumberId}`,
+      {
+        headers: { 
+          Authorization: `Bearer ${config.whatsapp.accessToken}`
+        },
+        timeout: 10000
+      }
+    );
+    
+    res.json({ 
+      status: 'success', 
+      message: 'WhatsApp token geçerli',
+      phoneNumberInfo: response.data
+    });
+    
+  } catch (error) {
+    console.error('WhatsApp token test hatası:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'WhatsApp token test başarısız',
+      details: error.response?.data || error.message
+    });
+  }
 });
 
 // Webhook doğrulama

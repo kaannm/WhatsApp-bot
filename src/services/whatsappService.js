@@ -5,6 +5,15 @@ const logger = require('../utils/logger');
 // WhatsApp Cloud API'ye mesaj gönder
 const sendMessage = async (to, text) => {
   try {
+    // Token kontrolü
+    if (!config.whatsapp.accessToken) {
+      throw new Error('WhatsApp access token bulunamadı');
+    }
+    
+    if (!config.whatsapp.phoneNumberId) {
+      throw new Error('WhatsApp phone number ID bulunamadı');
+    }
+    
     // Rate limiting için kısa bekleme
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -85,6 +94,11 @@ const sendMedia = async (to, mediaId, caption = '') => {
 // Medya URL'sini al
 const getMediaUrl = async (mediaId) => {
   try {
+    // Token kontrolü
+    if (!config.whatsapp.accessToken) {
+      throw new Error('WhatsApp access token bulunamadı');
+    }
+    
     const response = await axios.get(
       `https://graph.facebook.com/v19.0/${mediaId}`,
       {
