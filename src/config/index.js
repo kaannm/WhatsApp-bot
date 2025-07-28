@@ -57,6 +57,10 @@ const config = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY
   },
+  
+  googleCloud: {
+    projectId: process.env.GOOGLE_CLOUD_PROJECT_ID
+  },
 
   redis: {
     host: process.env.REDIS_HOST || 'localhost',

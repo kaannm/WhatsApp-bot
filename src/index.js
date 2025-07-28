@@ -251,6 +251,32 @@ app.get('/test-whatsapp', async (req, res) => {
   }
 });
 
+// Imagen service test endpoint'i
+app.get('/test-imagen', async (req, res) => {
+  try {
+    const config = require('./config');
+    
+    if (!config.googleCloud.projectId) {
+      return res.status(400).json({ error: 'Google Cloud Project ID bulunamadı' });
+    }
+    
+    res.json({ 
+      status: 'success', 
+      message: 'Imagen service hazır',
+      googleCloud: {
+        projectId: config.googleCloud.projectId ? 'Set' : 'Not Set'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Imagen service test hatası:', error.message);
+    res.status(500).json({ 
+      error: 'Imagen service test başarısız',
+      details: error.message
+    });
+  }
+});
+
 // Webhook doğrulama
 app.get('/webhook', (req, res) => {
   const verify_token = process.env.WHATSAPP_VERIFY_TOKEN;
@@ -536,14 +562,21 @@ async function processPhotos(from, session) {
     
     const imagePrompt = `${firstName} ve ${friendName} ${dreamPlace} ülkesinde ${friendLikes} yaparken. Modern ve kaliteli bir resim. İki arkadaş mutlu ve eğleniyor.`;
     
-    const images = await imagenService.generateImage(imagePrompt, {
-      aspectRatio: '1:1',
-      guidanceScale: 'high'
-    });
-    
-    if (images && images.length > 0) {
-      await imagenService.sendImageToWhatsApp(from, images[0].imageData, 
-        `🎨 ${firstName}! Senin için özel resmin hazır. ${friendName} ile ${dreamPlace} hayalin!`);
+    try {
+      const images = await imagenService.generateImage(imagePrompt, {
+        aspectRatio: '1:1',
+        guidanceScale: 'high'
+      });
+      
+      if (images && images.length > 0) {
+        await imagenService.sendImageToWhatsApp(from, images[0].imageData, 
+          `🎨 ${firstName}! Senin için özel resmin hazır. ${friendName} ile ${dreamPlace} hayalin!`);
+      } else {
+        await sendWhatsappMessage(from, 'AI görsel oluşturulamadı ama bilgileriniz kaydedildi. Teşekkürler!');
+      }
+    } catch (imagenError) {
+      console.error('Imagen service hatası:', imagenError.message);
+      await sendWhatsappMessage(from, 'AI görsel oluşturulamadı ama bilgileriniz kaydedildi. Teşekkürler!');
     }
     
     // Oturumu temizle

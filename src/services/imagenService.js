@@ -26,7 +26,7 @@ async function generateImage(prompt, options = {}) {
     const accessToken = await getAccessToken();
     
     const response = await axios.post(
-      'https://us-central1-aiplatform.googleapis.com/v1/projects/your-project-id/locations/us-central1/publishers/google/models/imagen-2.0:predict',
+      `https://us-central1-aiplatform.googleapis.com/v1/projects/${config.googleCloud.projectId}/locations/us-central1/publishers/google/models/imagen-2.0:predict`,
       {
         instances: [{
           prompt: prompt,
@@ -52,7 +52,16 @@ async function generateImage(prompt, options = {}) {
     }));
     
   } catch (error) {
-    console.error('Imagen 2 resim oluşturma hatası:', error.message);
+    console.error('Imagen 2 resim oluşturma hatası:', error.message, {
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    
+    // Google Cloud project ID kontrolü
+    if (!config.googleCloud.projectId) {
+      throw new Error('Google Cloud Project ID bulunamadı. GOOGLE_CLOUD_PROJECT_ID environment variable\'ını ayarlayın.');
+    }
+    
     throw error;
   }
 }
@@ -63,7 +72,7 @@ async function editImage(base64Image, prompt, options = {}) {
     const accessToken = await getAccessToken();
     
     const response = await axios.post(
-      'https://us-central1-aiplatform.googleapis.com/v1/projects/your-project-id/locations/us-central1/publishers/google/models/imagen-2.0:edit',
+      `https://us-central1-aiplatform.googleapis.com/v1/projects/${config.googleCloud.projectId}/locations/us-central1/publishers/google/models/imagen-2.0:edit`,
       {
         instances: [{
           image: {
