@@ -199,6 +199,7 @@ async function sendWhatsappMessage(to, text) {
 app.use(express.json());
 
 app.get('/', (req, res) => {
+  const config = require('./config');
   res.status(200).json({ 
     status: 'OK', 
     message: 'WhatsApp Bot çalışıyor!',
@@ -267,6 +268,8 @@ app.get('/webhook', (req, res) => {
 // Ana webhook endpoint
 app.post('/webhook', async (req, res) => {
   console.log('POST /webhook çağrıldı');
+  
+  const config = require('./config');
   
   // WhatsApp token kontrolü
   if (!config.whatsapp.accessToken) {
