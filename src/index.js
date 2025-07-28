@@ -331,34 +331,8 @@ app.post('/webhook', async (req, res) => {
         return res.sendStatus(200);
       }
       
-      // Eğlenceli sorular aşamalarında Gemini'ye gitme
-      if (session.stage === FORM_STAGES.FUN_QUESTION_1 || 
-          session.stage === FORM_STAGES.FUN_QUESTION_2 || 
-          session.stage === FORM_STAGES.FUN_QUESTION_3) {
-        // Bu aşamalar kendi işleme kodlarında zaten ele alınıyor
-        return res.sendStatus(200);
-      }
-      
-      let prompt = `${SYSTEM_PROMPT}\n\nMEVCUT AŞAMA: ${session.stage}\n\nKullanıcı cevabı: ${userInput}\n\nÖNEMLİ: Kullanıcı zaten bilgi verdiğinde, o bilgiyi kabul et ve bir sonraki aşamaya geç.`;
-      
-      const geminiResponse = await askGemini(prompt);
-      console.log('Gemini cevabı:', geminiResponse);
-      
-      // YENİ_BİLGİ formatını kontrol et
-      const newInfoMatch = geminiResponse.match(/YENİ_BİLGİ:\s*([^\n]+)/i);
-      if (newInfoMatch) {
-        const newInfo = newInfoMatch[1];
-        
-        if (session.stage === FORM_STAGES.NAME) {
-          session.answers.name = userInput.trim();
-          session.stage = FORM_STAGES.FRIEND_NAME;
-          await sendWhatsappMessage(from, `Tanıştığımıza memnun oldum ${userInput.trim()}! 🙌\n\nPeki, arkadaşının adı ne?`);
-        } else if (session.stage === FORM_STAGES.FRIEND_NAME) {
-          session.answers.friendName = userInput.trim();
-          session.stage = FORM_STAGES.LAST_NAME;
-          await sendWhatsappMessage(from, `Harika! ${userInput.trim()} ile arkadaşsınız. 🎯\n\nŞimdi kayıt formunu dolduralım.\n\nSoyadınız nedir?`);
-        }
-      } else if (session.stage === FORM_STAGES.FUN_QUESTION_1) {
+            // Eğlenceli sorular aşamaları
+      if (session.stage === FORM_STAGES.FUN_QUESTION_1) {
         // İlk eğlenceli soru: Arkadaşın ne yapmaktan hoşlanır?
         if (userInput.toLowerCase().includes('atla')) {
           // Soruyu atla
@@ -418,11 +392,39 @@ app.post('/webhook', async (req, res) => {
           await sendWhatsappMessage(from, `Şimdi ${friendName} fotoğrafını gönderin. 📸`);
         }
         return res.sendStatus(200);
-      } else {
-        // Gemini'nin cevabını ilet
-        const cleanResponse = geminiResponse.replace(/YENİ_BİLGİ:.*$/gim, '').trim();
-        await sendWhatsappMessage(from, cleanResponse);
       }
+      
+      // Sadece NAME ve FRIEND_NAME aşamalarında Gemini'ye git
+      if (session.stage === FORM_STAGES.NAME || session.stage === FORM_STAGES.FRIEND_NAME) {
+        let prompt = `${SYSTEM_PROMPT}\n\nMEVCUT AŞAMA: ${session.stage}\n\nKullanıcı cevabı: ${userInput}\n\nÖNEMLİ: Kullanıcı zaten bilgi verdiğinde, o bilgiyi kabul et ve bir sonraki aşamaya geç.`;
+        
+        const geminiResponse = await askGemini(prompt);
+        console.log('Gemini cevabı:', geminiResponse);
+        
+        // YENİ_BİLGİ formatını kontrol et
+        const newInfoMatch = geminiResponse.match(/YENİ_BİLGİ:\s*([^\n]+)/i);
+        if (newInfoMatch) {
+          const newInfo = newInfoMatch[1];
+          
+          if (session.stage === FORM_STAGES.NAME) {
+            session.answers.name = userInput.trim();
+            session.stage = FORM_STAGES.FRIEND_NAME;
+            await sendWhatsappMessage(from, `Tanıştığımıza memnun oldum ${userInput.trim()}! 🙌\n\nPeki, arkadaşının adı ne?`);
+          } else if (session.stage === FORM_STAGES.FRIEND_NAME) {
+            session.answers.friendName = userInput.trim();
+            session.stage = FORM_STAGES.LAST_NAME;
+            await sendWhatsappMessage(from, `Harika! ${userInput.trim()} ile arkadaşsınız. 🎯\n\nŞimdi kayıt formunu dolduralım.\n\nSoyadınız nedir?`);
+          }
+        } else {
+          // Gemini'nin cevabını ilet
+          const cleanResponse = geminiResponse.replace(/YENİ_BİLGİ:.*$/gim, '').trim();
+          await sendWhatsappMessage(from, cleanResponse);
+        }
+        return res.sendStatus(200);
+      }
+      
+      // Diğer aşamalar için Gemini'ye gitme
+      return res.sendStatus(200);
       
     } catch (err) {
       console.error('Gemini API hatası:', err);
