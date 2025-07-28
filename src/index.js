@@ -380,71 +380,26 @@ app.post('/webhook', async (req, res) => {
     // Medya mesajı kontrolü (fotoğraf)
     if (message.image) {
       if (session.stage === FORM_STAGES.PHOTO_REQUEST) {
-        try {
-          // WhatsApp medya URL'sini al
-          const mediaUrl = await whatsappService.getMediaUrl(message.image.id);
+        console.log('Fotoğraf alındı (geçici çözüm)');
+        
+        // Placeholder data ekle
+        session.photos.push({
+          data: 'photo_placeholder',
+          timestamp: Date.now(),
+          type: 'placeholder'
+        });
+        
+        console.log(`Fotoğraf alındı (geçici): ${session.photos.length}/2`);
+        
+        if (session.photos.length === 1) {
+          const friendName = session.answers.friendName || 'arkadaşının';
+          await sendWhatsappMessage(from, `Harika! Kendi fotoğrafınız alındı. 📸\n\nŞimdi ${friendName} fotoğrafını gönderin.`);
+        } else if (session.photos.length === 2) {
+          await sendWhatsappMessage(from, 'Mükemmel! Her iki fotoğraf da alındı. 🎬\n\nŞimdi AI ile özel görselinizi oluşturuyorum, lütfen bekleyin...');
+          session.stage = FORM_STAGES.PROCESSING;
           
-          // Medyayı indir (token ile)
-          const imageData = await whatsappService.downloadMediaAsBase64(mediaUrl);
-          
-          // Cloudinary'ye yükle
-          const publicId = `whatsapp-bot/${session.answers.firstName || 'user'}_${Date.now()}`;
-          const uploadResult = await cloudinaryService.uploadImage(imageData, publicId);
-          
-          // URL'yi session'a kaydet
-          session.photos.push({
-            url: uploadResult.url,
-            publicId: uploadResult.publicId,
-            assetId: uploadResult.assetId,
-            timestamp: uploadResult.timestamp
-          });
-          
-          console.log(`Fotoğraf Imgur'a yüklendi: ${session.photos.length}/2`);
-          
-          if (session.photos.length === 1) {
-            const friendName = session.answers.friendName || 'arkadaşının';
-            await sendWhatsappMessage(from, `Harika! Kendi fotoğrafınız alındı ve kaydedildi. 📸\n\nŞimdi ${friendName} fotoğrafını gönderin.`);
-          } else if (session.photos.length === 2) {
-            await sendWhatsappMessage(from, 'Mükemmel! Her iki fotoğraf da alındı ve kaydedildi. 🎬\n\nŞimdi AI ile özel görselinizi oluşturuyorum, lütfen bekleyin...');
-            session.stage = FORM_STAGES.PROCESSING;
-            
-            // AI işleme başlat
-            await processPhotos(from, session);
-          }
-        } catch (error) {
-          console.error('Fotoğraf işleme hatası:', error);
-          
-          // WhatsApp authentication hatası kontrolü
-          if (error.message.includes('WhatsApp token geçersiz') || error.response?.status === 401) {
-            console.error('WhatsApp token sorunu tespit edildi - fotoğraf işleme');
-            
-            // Geçici çözüm: Base64 formatında sakla
-            try {
-              session.photos.push({
-                data: 'photo_data_placeholder',
-                timestamp: Date.now(),
-                type: 'placeholder'
-              });
-              
-              if (session.photos.length === 1) {
-                const friendName = session.answers.friendName || 'arkadaşının';
-                await sendWhatsappMessage(from, `Fotoğraf alındı (geçici). 📸\n\nŞimdi ${friendName} fotoğrafını gönderin.`);
-              } else if (session.photos.length === 2) {
-                await sendWhatsappMessage(from, 'Her iki fotoğraf da alındı (geçici). 🎬\n\nŞimdi AI ile özel görselinizi oluşturuyorum, lütfen bekleyin...');
-                session.stage = FORM_STAGES.PROCESSING;
-                await processPhotos(from, session);
-              }
-            } catch (whatsappError) {
-              console.error('Geçici çözüm hatası:', whatsappError.message);
-            }
-            return res.sendStatus(200);
-          }
-          
-          try {
-            await sendWhatsappMessage(from, 'Fotoğraf işlenirken bir hata oluştu. Lütfen tekrar deneyin.');
-          } catch (whatsappError) {
-            console.error('Hata mesajı gönderilemedi:', whatsappError.message);
-          }
+          // AI işleme başlat
+          await processPhotos(from, session);
         }
       }
       return res.sendStatus(200);
@@ -616,10 +571,9 @@ async function processPhotos(from, session) {
       ...session.answers,
       funAnswers: session.funAnswers,
       photos: session.photos.map(photo => ({
-        url: photo.url,
-        publicId: photo.publicId,
-        assetId: photo.assetId,
-        timestamp: photo.timestamp
+        data: photo.data || 'placeholder',
+        timestamp: photo.timestamp,
+        type: photo.type || 'placeholder'
       })),
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
