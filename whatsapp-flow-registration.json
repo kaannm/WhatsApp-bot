@@ -1,0 +1,221 @@
+{
+  "version": "7.2",
+  "screens": [
+    {
+      "id": "REGISTRATION_FORM",
+      "title": "Kayıt Formu",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "form",
+            "children": [
+              {
+                "type": "TextSubheading",
+                "text": "Bir Arkadaşlık Hikayesi'ne hoş geldin! 🥤"
+              },
+              {
+                "type": "TextBody",
+                "text": "Sana ve arkadaşına özel benzersiz bir hikaye oluşturmak için birkaç bilgiye ihtiyacım var."
+              },
+              {
+                "type": "TextInput",
+                "name": "firstName",
+                "label": "Adınız",
+                "input-type": "text",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "lastName",
+                "label": "Soyadınız",
+                "input-type": "text",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "email",
+                "label": "E-posta Adresiniz",
+                "input-type": "email",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "phone",
+                "label": "Telefon Numaranız",
+                "input-type": "phone",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "city",
+                "label": "Şehir",
+                "input-type": "text",
+                "required": true
+              },
+              {
+                "type": "OptIn",
+                "label": "Kişisel verilerimin işlenmesine izin veriyorum",
+                "required": true,
+                "name": "privacy_optin",
+                "on-click-action": {
+                  "name": "navigate",
+                  "payload": {},
+                  "next": {
+                    "name": "PRIVACY_POLICY",
+                    "type": "screen"
+                  }
+                }
+              },
+              {
+                "type": "Footer",
+                "label": "Devam Et",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": {
+                    "type": "screen",
+                    "name": "CONFIRMATION"
+                  },
+                  "payload": {
+                    "firstName": "${form.firstName}",
+                    "lastName": "${form.lastName}",
+                    "email": "${form.email}",
+                    "phone": "${form.phone}",
+                    "city": "${form.city}",
+                    "privacy_optin": "${form.privacy_optin}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRMATION",
+      "title": "Kayıt Tamamlandı",
+      "data": {
+        "firstName": {
+          "type": "string",
+          "__example__": "Kaan"
+        },
+        "lastName": {
+          "type": "string",
+          "__example__": "Taşdemir"
+        },
+        "email": {
+          "type": "string",
+          "__example__": "kaan@example.com"
+        },
+        "phone": {
+          "type": "string",
+          "__example__": "+905316606335"
+        },
+        "city": {
+          "type": "string",
+          "__example__": "İzmir"
+        },
+        "privacy_optin": {
+          "type": "boolean",
+          "__example__": true
+        }
+      },
+      "terminal": true,
+      "success": true,
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "🎉 Kayıt Tamamlandı!"
+              },
+              {
+                "type": "TextSubheading",
+                "text": "Teşekkürler ${data.firstName}!"
+              },
+              {
+                "type": "TextBody",
+                "text": "Kayıt bilgileriniz başarıyla alındı. Şimdi özel hikayenizi oluşturmaya başlayalım!"
+              },
+              {
+                "type": "TextBody",
+                "text": "👤 Ad Soyad: ${data.firstName} ${data.lastName}\n📧 E-posta: ${data.email}\n📱 Telefon: ${data.phone}\n📍 Şehir: ${data.city}"
+              },
+              {
+                "type": "Footer",
+                "label": "Eğlenceli Sorulara Başla",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "firstName": "${data.firstName}",
+                    "lastName": "${data.lastName}",
+                    "email": "${data.email}",
+                    "phone": "${data.phone}",
+                    "city": "${data.city}",
+                    "privacy_optin": "${data.privacy_optin}",
+                    "status": "completed"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRIVACY_POLICY",
+      "title": "Gizlilik Politikası",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "🔒 Gizlilik Politikası"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "Kişisel Verilerin Korunması"
+          },
+          {
+            "type": "TextBody",
+            "text": "Bir Arkadaşlık Hikayesi olarak, kişisel verilerinizin güvenliğini önemsiyoruz. Topladığımız bilgiler sadece size özel hikaye oluşturmak için kullanılır ve üçüncü taraflarla paylaşılmaz."
+          },
+          {
+            "type": "TextSubheading",
+            "text": "Veri Kullanımı"
+          },
+          {
+            "type": "TextBody",
+            "text": "• Adınız ve arkadaşınızın adı: Hikayenizi kişiselleştirmek için\n• Şehir bilgisi: Lokasyon bazlı içerik için\n• Yaş grubu: Yaşa uygun içerik için\n• İlgi alanları: Size özel hikaye oluşturmak için"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "Veri Saklama"
+          },
+          {
+            "type": "TextBody",
+            "text": "Verileriniz güvenli sunucularda saklanır ve sadece hikaye oluşturma sürecinde kullanılır. İstediğiniz zaman verilerinizi silebiliriz."
+          },
+          {
+            "type": "Footer",
+            "label": "Geri Dön",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "REGISTRATION_FORM"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+} 
