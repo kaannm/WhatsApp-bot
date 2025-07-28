@@ -213,6 +213,8 @@ app.get('/', (req, res) => {
 // WhatsApp token test endpoint'i
 app.get('/test-whatsapp', async (req, res) => {
   try {
+    const config = require('./config');
+    
     if (!config.whatsapp.accessToken) {
       return res.status(400).json({ error: 'WhatsApp access token bulunamadı' });
     }
@@ -265,6 +267,12 @@ app.get('/webhook', (req, res) => {
 // Ana webhook endpoint
 app.post('/webhook', async (req, res) => {
   console.log('POST /webhook çağrıldı');
+  
+  // WhatsApp token kontrolü
+  if (!config.whatsapp.accessToken) {
+    console.error('WhatsApp access token bulunamadı');
+    return res.sendStatus(500);
+  }
   
   const entry = req.body.entry?.[0];
   const changes = entry?.changes?.[0];
@@ -330,7 +338,19 @@ app.post('/webhook', async (req, res) => {
           }
         } catch (error) {
           console.error('Fotoğraf işleme hatası:', error);
-          await sendWhatsappMessage(from, 'Fotoğraf işlenirken bir hata oluştu. Lütfen tekrar deneyin.');
+          
+          // WhatsApp authentication hatası kontrolü
+          if (error.message.includes('WhatsApp token geçersiz') || error.response?.status === 401) {
+            console.error('WhatsApp token sorunu tespit edildi - fotoğraf işleme');
+            // Bu durumda kullanıcıya bilgi veremeyiz çünkü WhatsApp çalışmıyor
+            return res.sendStatus(500);
+          }
+          
+          try {
+            await sendWhatsappMessage(from, 'Fotoğraf işlenirken bir hata oluştu. Lütfen tekrar deneyin.');
+          } catch (whatsappError) {
+            console.error('Hata mesajı gönderilemedi:', whatsappError.message);
+          }
         }
       }
       return res.sendStatus(200);
@@ -528,7 +548,20 @@ async function processPhotos(from, session) {
     
   } catch (error) {
     console.error('Fotoğraf işleme hatası:', error);
-    await sendWhatsappMessage(from, 'Resim oluşturulamadı ama bilgileriniz kaydedildi. Teşekkürler!');
+    
+    // WhatsApp authentication hatası kontrolü
+    if (error.message.includes('WhatsApp token geçersiz') || error.response?.status === 401) {
+      console.error('WhatsApp token sorunu tespit edildi - processPhotos');
+      // Bu durumda kullanıcıya bilgi veremeyiz çünkü WhatsApp çalışmıyor
+      delete sessions[from];
+      return;
+    }
+    
+    try {
+      await sendWhatsappMessage(from, 'Resim oluşturulamadı ama bilgileriniz kaydedildi. Teşekkürler!');
+    } catch (whatsappError) {
+      console.error('Hata mesajı gönderilemedi:', whatsappError.message);
+    }
     delete sessions[from];
   }
 }
