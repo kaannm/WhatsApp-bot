@@ -519,6 +519,10 @@ app.post('/webhook', async (req, res) => {
           }
         }
         return res.sendStatus(200);
+      } else if (session.stage === FORM_STAGES.PHOTO_REQUEST) {
+        // Fotoğraf aşamasında metin mesajı geldiğinde
+        await sendWhatsappMessage(from, 'Lütfen bir fotoğraf gönderin. 📸');
+        return res.sendStatus(200);
       } else {
         // Gemini'nin cevabını ilet
         const cleanResponse = geminiResponse.replace(/YENİ_BİLGİ:.*$/gim, '').trim();
