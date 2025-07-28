@@ -5,6 +5,7 @@ const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const imagenService = require('./services/imagenService');
 const whatsappService = require('./services/whatsappService');
+const cloudinaryService = require('./services/cloudinaryService');
 const geminiService = require('./services/geminiService');
 
 // Kullanıcı oturumlarını hafızada tutmak için basit bir obje
@@ -277,6 +278,37 @@ app.get('/test-imagen', async (req, res) => {
   }
 });
 
+// Cloudinary API test endpoint
+app.get('/test-cloudinary', async (req, res) => {
+  try {
+    const config = require('./config');
+    
+    if (!config.cloudinary.cloudName || !config.cloudinary.apiKey || !config.cloudinary.apiSecret) {
+      return res.json({
+        status: 'error',
+        message: 'Cloudinary konfigürasyonu eksik',
+        details: 'CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET environment variables ayarlanmamış'
+      });
+    }
+    
+    res.json({
+      status: 'success',
+      message: 'Cloudinary konfigürasyonu başarılı',
+      cloudName: config.cloudinary.cloudName,
+      apiKey: config.cloudinary.apiKey.substring(0, 10) + '...',
+      apiSecret: config.cloudinary.apiSecret.substring(0, 10) + '...'
+    });
+    
+  } catch (error) {
+    console.error('Cloudinary test hatası:', error.message);
+    res.json({
+      status: 'error',
+      message: 'Cloudinary test başarısız',
+      details: error.message
+    });
+  }
+});
+
 // Webhook doğrulama
 app.get('/webhook', (req, res) => {
   const verify_token = process.env.WHATSAPP_VERIFY_TOKEN;
@@ -349,17 +381,29 @@ app.post('/webhook', async (req, res) => {
     if (message.image) {
       if (session.stage === FORM_STAGES.PHOTO_REQUEST) {
         try {
-          // Medya indirme geçici olarak devre dışı
-          console.log(`Fotoğraf alındı (medya indirme devre dışı): ${session.photos.length + 1}/2`);
+          // WhatsApp'tan fotoğrafı indir
+          const mediaUrl = await whatsappService.getMediaUrl(message.image.id);
+          const imageData = await whatsappService.downloadMediaAsBase64(mediaUrl);
           
-          // Geçici olarak boş data ekle
-          session.photos.push('photo_data_placeholder');
+          // Cloudinary'ye yükle
+          const publicId = `whatsapp-bot/${session.answers.firstName || 'user'}_${Date.now()}`;
+          const uploadResult = await cloudinaryService.uploadImage(imageData, publicId);
+          
+          // URL'yi session'a kaydet
+          session.photos.push({
+            url: uploadResult.url,
+            publicId: uploadResult.publicId,
+            assetId: uploadResult.assetId,
+            timestamp: uploadResult.timestamp
+          });
+          
+          console.log(`Fotoğraf Imgur'a yüklendi: ${session.photos.length}/2`);
           
           if (session.photos.length === 1) {
             const friendName = session.answers.friendName || 'arkadaşının';
-            await sendWhatsappMessage(from, `Harika! Kendi fotoğrafınız alındı. 📸\n\nŞimdi ${friendName} fotoğrafını gönderin.`);
+            await sendWhatsappMessage(from, `Harika! Kendi fotoğrafınız alındı ve kaydedildi. 📸\n\nŞimdi ${friendName} fotoğrafını gönderin.`);
           } else if (session.photos.length === 2) {
-            await sendWhatsappMessage(from, 'Mükemmel! Her iki fotoğraf da alındı. 🎬\n\nŞimdi AI ile özel görselinizi oluşturuyorum, lütfen bekleyin...');
+            await sendWhatsappMessage(from, 'Mükemmel! Her iki fotoğraf da alındı ve kaydedildi. 🎬\n\nŞimdi AI ile özel görselinizi oluşturuyorum, lütfen bekleyin...');
             session.stage = FORM_STAGES.PROCESSING;
             
             // AI işleme başlat
@@ -550,7 +594,12 @@ async function processPhotos(from, session) {
       phone: from,
       ...session.answers,
       funAnswers: session.funAnswers,
-      photos: session.photos.length,
+      photos: session.photos.map(photo => ({
+        url: photo.url,
+        publicId: photo.publicId,
+        assetId: photo.assetId,
+        timestamp: photo.timestamp
+      })),
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
     

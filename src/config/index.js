@@ -61,6 +61,11 @@ const config = {
   googleCloud: {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID
   },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET
+  },
 
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
