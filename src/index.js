@@ -16,17 +16,19 @@ const FORM_STAGES = {
   NAME: 'name',
   FRIEND_NAME: 'friend_name',
   REGISTRATION: 'registration',
-  FUN_QUESTIONS: 'fun_questions',
+  FUN_QUESTION_1: 'fun_question_1', // Arkadaşın ne yapmaktan hoşlanır?
+  FUN_QUESTION_2: 'fun_question_2', // Sen ne yapmaktan hoşlanırsın?
+  FUN_QUESTION_3: 'fun_question_3', // Birlikte nereye gitmek istersiniz?
   PHOTO_REQUEST: 'photo_request',
   PROCESSING: 'processing'
 };
 
 // Eğlenceli sorular (Coca-Cola tarzı)
-const funQuestions = [
-  { key: 'friendLikes', text: 'Arkadaşın ne yapmaktan hoşlanır?' },
-  { key: 'youLike', text: 'Sen ne yapmaktan hoşlanırsın?' },
-  { key: 'dreamPlace', text: 'Birlikte nereye gitmek istersiniz?' }
-];
+const FUN_QUESTIONS = {
+  FRIEND_LIKES: 'Arkadaşın ne yapmaktan hoşlanır?',
+  YOU_LIKE: 'Sen ne yapmaktan hoşlanırsın?',
+  DREAM_PLACE: 'Birlikte nereye gitmek istersiniz?'
+};
 
 // WhatsApp Flow Token (Meta Developer Console'dan alacaksın)
 const WHATSAPP_FLOW_TOKEN = process.env.WHATSAPP_FLOW_TOKEN || 'your_flow_token_here';
@@ -228,11 +230,10 @@ app.post('/webhook', async (req, res) => {
       
       if (!sessions[from]) {
         sessions[from] = { 
-          stage: FORM_STAGES.FUN_QUESTIONS,
+          stage: FORM_STAGES.FUN_QUESTION_1,
           answers: {},
           funAnswers: {},
-          photos: [],
-          currentQuestionIndex: 0
+          photos: []
         };
       }
       
@@ -266,8 +267,8 @@ app.post('/webhook', async (req, res) => {
       }
       
       try {
-        await sendWhatsappMessage(from, `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Lütfen bunları olabildiğince detaylı cevapla. Cevaplarını birkaç mesaja bölmek yerine tek seferde vermeye dikkat et. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla"'ya tıkla, sana yeni bir soru veririm.\n\nAnlaştık mı?`);
-        sessions[from].stage = FORM_STAGES.FUN_QUESTIONS;
+        await sendWhatsappMessage(from, `Tamam, şimdi sizi biraz daha yakından tanımak istiyorum.\n\nİlişkiniz hakkında daha fazla bilgi edinmek için sana 3 soru soracağım. Lütfen bunları olabildiğince detaylı cevapla. Cevaplarını birkaç mesaja bölmek yerine tek seferde vermeye dikkat et. Eğer bir soruyu beğenmezsen veya alakasız olduğunu düşünüyorsan, "Atla"'ya tıkla, sana yeni bir soru veririm.\n\nAnlaştık mı?\n\nİlk soru: ${FUN_QUESTIONS.FRIEND_LIKES}`);
+        sessions[from].stage = FORM_STAGES.FUN_QUESTION_1;
       } catch (whatsappError) {
         console.error('Flow tamamlama mesajı gönderme hatası:', whatsappError.message);
       }
@@ -288,8 +289,7 @@ app.post('/webhook', async (req, res) => {
             stage: FORM_STAGES.NAME,
             answers: {},
             funAnswers: {},
-            photos: [],
-            currentQuestionIndex: 0
+            photos: []
           };
         }
         try {
@@ -304,8 +304,7 @@ app.post('/webhook', async (req, res) => {
             stage: FORM_STAGES.REGISTRATION,
             answers: {},
             funAnswers: {},
-            photos: [],
-            currentQuestionIndex: 0
+            photos: []
           };
         }
         try {
@@ -330,8 +329,7 @@ app.post('/webhook', async (req, res) => {
         stage: FORM_STAGES.NAME,
         answers: {},
         funAnswers: {},
-        photos: [],
-        currentQuestionIndex: 0
+        photos: []
       };
       
       try {
@@ -452,8 +450,8 @@ app.post('/webhook', async (req, res) => {
             sessions[from].answers.city = userInput.trim();
             delete sessions[from].currentField;
             try {
-              await sendWhatsappMessage(from, `Harika! ${userInput.trim()} güzel bir şehir. 🏙️\n\nKayıt formunuz tamamlandı! Şimdi eğlenceli sorulara geçelim.\n\nİlk soru: ${funQuestions[0].text}`);
-              sessions[from].stage = FORM_STAGES.FUN_QUESTIONS;
+              await sendWhatsappMessage(from, `Harika! ${userInput.trim()} güzel bir şehir. 🏙️\n\nKayıt formunuz tamamlandı! Şimdi eğlenceli sorulara geçelim.\n\nİlk soru: ${FUN_QUESTIONS.FRIEND_LIKES}`);
+              sessions[from].stage = FORM_STAGES.FUN_QUESTION_1;
             } catch (whatsappError) {
               console.error('Tamamlama mesajı gönderme hatası:', whatsappError.message);
             }
@@ -487,36 +485,55 @@ app.post('/webhook', async (req, res) => {
           await sendRegistrationForm(from, 'lastName');
           }
         }
-      } else if (session.stage === FORM_STAGES.FUN_QUESTIONS) {
-        // Eğlenceli sorular akışı
-        const currentQuestion = funQuestions[session.currentQuestionIndex];
-        
+      } else if (session.stage === FORM_STAGES.FUN_QUESTION_1) {
+        // İlk eğlenceli soru: Arkadaşın ne yapmaktan hoşlanır?
         if (userInput.toLowerCase().includes('atla')) {
           // Soruyu atla
-          session.currentQuestionIndex++;
-          if (session.currentQuestionIndex >= funQuestions.length) {
-            // Tüm sorular tamamlandı
-            await sendWhatsappMessage(from, `Harika gidiyorsun! 📸\n\nŞimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
-            session.stage = FORM_STAGES.PHOTO_REQUEST;
-          } else {
-            const nextQuestion = funQuestions[session.currentQuestionIndex];
-            await sendWhatsappMessage(from, nextQuestion.text);
-          }
+          await sendWhatsappMessage(from, FUN_QUESTIONS.YOU_LIKE);
+          session.stage = FORM_STAGES.FUN_QUESTION_2;
         } else {
           // Cevabı kaydet
-          session.funAnswers[currentQuestion.key] = userInput.trim();
-          console.log(`Eğlenceli cevap kaydedildi: ${currentQuestion.key} = ${userInput.trim()}`);
+          session.funAnswers = session.funAnswers || {};
+          session.funAnswers.friendLikes = userInput.trim();
+          console.log(`Eğlenceli cevap kaydedildi: friendLikes = ${userInput.trim()}`);
           
-          // Bir sonraki soruya geç
-          session.currentQuestionIndex++;
-          if (session.currentQuestionIndex >= funQuestions.length) {
-            // Tüm sorular tamamlandı
-            await sendWhatsappMessage(from, `Harika gidiyorsun! 📸\n\nŞimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
-            session.stage = FORM_STAGES.PHOTO_REQUEST;
-          } else {
-            const nextQuestion = funQuestions[session.currentQuestionIndex];
-            await sendWhatsappMessage(from, nextQuestion.text);
-          }
+          // İkinci soruya geç
+          await sendWhatsappMessage(from, FUN_QUESTIONS.YOU_LIKE);
+          session.stage = FORM_STAGES.FUN_QUESTION_2;
+        }
+        return res.sendStatus(200);
+      } else if (session.stage === FORM_STAGES.FUN_QUESTION_2) {
+        // İkinci eğlenceli soru: Sen ne yapmaktan hoşlanırsın?
+        if (userInput.toLowerCase().includes('atla')) {
+          // Soruyu atla
+          await sendWhatsappMessage(from, FUN_QUESTIONS.DREAM_PLACE);
+          session.stage = FORM_STAGES.FUN_QUESTION_3;
+        } else {
+          // Cevabı kaydet
+          session.funAnswers = session.funAnswers || {};
+          session.funAnswers.youLike = userInput.trim();
+          console.log(`Eğlenceli cevap kaydedildi: youLike = ${userInput.trim()}`);
+          
+          // Üçüncü soruya geç
+          await sendWhatsappMessage(from, FUN_QUESTIONS.DREAM_PLACE);
+          session.stage = FORM_STAGES.FUN_QUESTION_3;
+        }
+        return res.sendStatus(200);
+      } else if (session.stage === FORM_STAGES.FUN_QUESTION_3) {
+        // Üçüncü eğlenceli soru: Birlikte nereye gitmek istersiniz?
+        if (userInput.toLowerCase().includes('atla')) {
+          // Soruyu atla
+          await sendWhatsappMessage(from, `Harika gidiyorsun! 📸\n\nŞimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
+          session.stage = FORM_STAGES.PHOTO_REQUEST;
+        } else {
+          // Cevabı kaydet
+          session.funAnswers = session.funAnswers || {};
+          session.funAnswers.dreamPlace = userInput.trim();
+          console.log(`Eğlenceli cevap kaydedildi: dreamPlace = ${userInput.trim()}`);
+          
+          // Fotoğraf aşamasına geç
+          await sendWhatsappMessage(from, `Harika gidiyorsun! 📸\n\nŞimdi, bana bir fotoğrafını gönderebilir misin? Yüzünün tamamen göründüğünden ve karede başka kimsenin olmadığından emin ol lütfen.`);
+          session.stage = FORM_STAGES.PHOTO_REQUEST;
         }
         return res.sendStatus(200);
       } else if (session.stage === FORM_STAGES.PHOTO_REQUEST) {
