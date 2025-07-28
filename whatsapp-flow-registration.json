@@ -22,13 +22,6 @@
               },
               {
                 "type": "TextInput",
-                "name": "firstName",
-                "label": "Adınız",
-                "input-type": "text",
-                "required": true
-              },
-              {
-                "type": "TextInput",
                 "name": "lastName",
                 "label": "Soyadınız",
                 "input-type": "text",
@@ -49,11 +42,102 @@
                 "required": true
               },
               {
+                "type": "Select",
+                "name": "ageGroup",
+                "label": "Yaş Grubunuz",
+                "required": true,
+                "options": [
+                  {
+                    "label": "18-25 yaş",
+                    "value": "18-25"
+                  },
+                  {
+                    "label": "26-35 yaş",
+                    "value": "26-35"
+                  },
+                  {
+                    "label": "36-45 yaş",
+                    "value": "36-45"
+                  },
+                  {
+                    "label": "46+ yaş",
+                    "value": "46+"
+                  },
+                  {
+                    "label": "Kendi cevabım",
+                    "value": "custom"
+                  }
+                ]
+              },
+              {
                 "type": "TextInput",
+                "name": "customAge",
+                "label": "Yaşınız",
+                "input-type": "text",
+                "required": false,
+                "conditional": {
+                  "field": "ageGroup",
+                  "value": "custom"
+                }
+              },
+              {
+                "type": "Select",
                 "name": "city",
                 "label": "Şehir",
+                "required": true,
+                "options": [
+                  {
+                    "label": "İstanbul",
+                    "value": "istanbul"
+                  },
+                  {
+                    "label": "Ankara",
+                    "value": "ankara"
+                  },
+                  {
+                    "label": "İzmir",
+                    "value": "izmir"
+                  },
+                  {
+                    "label": "Bursa",
+                    "value": "bursa"
+                  },
+                  {
+                    "label": "Antalya",
+                    "value": "antalya"
+                  },
+                  {
+                    "label": "Adana",
+                    "value": "adana"
+                  },
+                  {
+                    "label": "Konya",
+                    "value": "konya"
+                  },
+                  {
+                    "label": "Gaziantep",
+                    "value": "gaziantep"
+                  },
+                  {
+                    "label": "Diyarbakır",
+                    "value": "diyarbakir"
+                  },
+                  {
+                    "label": "Kendi cevabım",
+                    "value": "custom"
+                  }
+                ]
+              },
+              {
+                "type": "TextInput",
+                "name": "customCity",
+                "label": "Şehriniz",
                 "input-type": "text",
-                "required": true
+                "required": false,
+                "conditional": {
+                  "field": "city",
+                  "value": "custom"
+                }
               },
               {
                 "type": "OptIn",
@@ -79,11 +163,13 @@
                     "name": "CONFIRMATION"
                   },
                   "payload": {
-                    "firstName": "${form.firstName}",
                     "lastName": "${form.lastName}",
                     "email": "${form.email}",
                     "phone": "${form.phone}",
+                    "ageGroup": "${form.ageGroup}",
+                    "customAge": "${form.customAge}",
                     "city": "${form.city}",
+                    "customCity": "${form.customCity}",
                     "privacy_optin": "${form.privacy_optin}"
                   }
                 }
@@ -97,29 +183,29 @@
       "id": "CONFIRMATION",
       "title": "Kayıt Tamamlandı",
       "data": {
-        "firstName": {
-          "type": "string",
-          "__example__": "Kaan"
-        },
         "lastName": {
-          "type": "string",
-          "__example__": "Taşdemir"
+          "type": "string"
         },
         "email": {
-          "type": "string",
-          "__example__": "kaan@example.com"
+          "type": "string"
         },
         "phone": {
-          "type": "string",
-          "__example__": "+905316606335"
+          "type": "string"
+        },
+        "ageGroup": {
+          "type": "string"
+        },
+        "customAge": {
+          "type": "string"
         },
         "city": {
-          "type": "string",
-          "__example__": "İzmir"
+          "type": "string"
+        },
+        "customCity": {
+          "type": "string"
         },
         "privacy_optin": {
-          "type": "boolean",
-          "__example__": true
+          "type": "boolean"
         }
       },
       "terminal": true,
@@ -128,42 +214,50 @@
         "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "Form",
-            "name": "form",
-            "children": [
-              {
-                "type": "TextHeading",
-                "text": "🎉 Kayıt Tamamlandı!"
-              },
-              {
-                "type": "TextSubheading",
-                "text": "Teşekkürler ${data.firstName}!"
-              },
-              {
-                "type": "TextBody",
-                "text": "Kayıt bilgileriniz başarıyla alındı. Şimdi özel hikayenizi oluşturmaya başlayalım!"
-              },
-              {
-                "type": "TextBody",
-                "text": "👤 Ad Soyad: ${data.firstName} ${data.lastName}\n📧 E-posta: ${data.email}\n📱 Telefon: ${data.phone}\n📍 Şehir: ${data.city}"
-              },
-              {
-                "type": "Footer",
-                "label": "Eğlenceli Sorulara Başla",
-                "on-click-action": {
-                  "name": "complete",
-                  "payload": {
-                    "firstName": "${data.firstName}",
-                    "lastName": "${data.lastName}",
-                    "email": "${data.email}",
-                    "phone": "${data.phone}",
-                    "city": "${data.city}",
-                    "privacy_optin": "${data.privacy_optin}",
-                    "status": "completed"
-                  }
-                }
+            "type": "TextSubheading",
+            "text": "🎉 Kayıt Tamamlandı!"
+          },
+          {
+            "type": "TextBody",
+            "text": "Bilgileriniz başarıyla kaydedildi. Şimdi eğlenceli sorulara geçelim!"
+          },
+          {
+            "type": "TextBody",
+            "text": "Soyadınız: ${lastName}"
+          },
+          {
+            "type": "TextBody",
+            "text": "E-posta: ${email}"
+          },
+          {
+            "type": "TextBody",
+            "text": "Telefon: ${phone}"
+          },
+          {
+            "type": "TextBody",
+            "text": "Yaş: ${ageGroup === 'custom' ? customAge : ageGroup}"
+          },
+          {
+            "type": "TextBody",
+            "text": "Şehir: ${city === 'custom' ? customCity : city}"
+          },
+          {
+            "type": "Footer",
+            "label": "Eğlenceli Sorulara Başla",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "lastName": "${lastName}",
+                "email": "${email}",
+                "phone": "${phone}",
+                "ageGroup": "${ageGroup}",
+                "customAge": "${customAge}",
+                "city": "${city}",
+                "customCity": "${customCity}",
+                "privacy_optin": "${privacy_optin}",
+                "status": "completed"
               }
-            ]
+            }
           }
         ]
       }
@@ -176,32 +270,12 @@
         "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "TextHeading",
-            "text": "🔒 Gizlilik Politikası"
-          },
-          {
             "type": "TextSubheading",
-            "text": "Kişisel Verilerin Korunması"
+            "text": "Gizlilik Politikası"
           },
           {
             "type": "TextBody",
-            "text": "Bir Arkadaşlık Hikayesi olarak, kişisel verilerinizin güvenliğini önemsiyoruz. Topladığımız bilgiler sadece size özel hikaye oluşturmak için kullanılır ve üçüncü taraflarla paylaşılmaz."
-          },
-          {
-            "type": "TextSubheading",
-            "text": "Veri Kullanımı"
-          },
-          {
-            "type": "TextBody",
-            "text": "• Adınız ve arkadaşınızın adı: Hikayenizi kişiselleştirmek için\n• Şehir bilgisi: Lokasyon bazlı içerik için\n• Yaş grubu: Yaşa uygun içerik için\n• İlgi alanları: Size özel hikaye oluşturmak için"
-          },
-          {
-            "type": "TextSubheading",
-            "text": "Veri Saklama"
-          },
-          {
-            "type": "TextBody",
-            "text": "Verileriniz güvenli sunucularda saklanır ve sadece hikaye oluşturma sürecinde kullanılır. İstediğiniz zaman verilerinizi silebiliriz."
+            "text": "Kişisel verileriniz güvenli bir şekilde saklanacak ve sadece hizmet kalitesini artırmak için kullanılacaktır. Verileriniz üçüncü taraflarla paylaşılmayacaktır."
           },
           {
             "type": "Footer",
