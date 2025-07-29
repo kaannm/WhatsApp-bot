@@ -1,273 +1,137 @@
-# WhatsApp Business API Bot
+# WhatsApp Bot with Gemini AI & Imagen 2
 
-Modern, güvenli ve kullanıcı dostu WhatsApp Business API bot uygulaması. Firebase Firestore ile entegre, gelişmiş güvenlik özellikleri ve kapsamlı logging sistemi içerir.
+Bu proje, WhatsApp Cloud API, Google Gemini AI ve Imagen 2 kullanarak akıllı bir form botu oluşturur. Bot, kullanıcılarla doğal dilde konuşarak form bilgilerini toplar ve form tamamlandığında kullanıcıya özel resimler oluşturur.
 
-## 🚀 Özellikler
+## Özellikler
 
-### Kullanıcı Deneyimi
-- ✅ **Kişiselleştirilmiş mesajlar** - Rastgele selamlamalar ve emoji desteği
-- ✅ **Akıllı validasyon** - Kullanıcı dostu hata mesajları
-- ✅ **Esnek input** - Farklı formatlarda telefon numarası kabul eder
-- ✅ **Yardım sistemi** - Kullanıcı komutları (yardım, iptal, vb.)
-- ✅ **Session yönetimi** - Otomatik timeout ve durum takibi
+- 🤖 **Gemini AI Asistan**: Doğal dilde form akışı yönetimi
+- 🎨 **Imagen 2 Entegrasyonu**: Kullanıcıya özel resim oluşturma
+- 📝 **Akıllı Form**: Ad, soyad, e-posta, telefon, şehir bilgilerini toplama
+- 🔄 **Oturum Yönetimi**: Kullanıcı oturumlarını takip etme
+- ⏱️ **Rate Limiting**: Günlük mesaj limiti (50 mesaj/24 saat)
+- 💾 **Firebase Firestore**: Veri saklama ve yönetimi
+- 🚀 **Railway Deployment**: Kolay deployment
 
-### Güvenlik
-- ✅ **Webhook doğrulama** - WhatsApp API imza kontrolü
-- ✅ **Rate limiting** - Spam koruması
-- ✅ **Input sanitization** - XSS ve injection koruması
-- ✅ **CORS koruması** - Güvenli origin kontrolü
-- ✅ **Helmet.js** - Güvenlik headers
+## Kurulum
 
-### Teknik Özellikler
-- ✅ **Modüler yapı** - Separation of concerns
-- ✅ **Environment variables** - Güvenli konfigürasyon
-- ✅ **Winston logging** - Kapsamlı log sistemi
-- ✅ **Error handling** - Merkezi hata yönetimi
-- ✅ **Performance monitoring** - Yavaş işlem tespiti
-- ✅ **Health checks** - Sistem durumu kontrolü
+### 1. Gereksinimler
 
-## 📋 Gereksinimler
+- Node.js 18+
+- Google Cloud Project (Imagen 2 için)
+- Firebase Project
+- WhatsApp Business API hesabı
 
-- Node.js 16+
-- Firebase projesi
-- 360dialog WhatsApp Business API hesabı
-- Runway ML API hesabı
+### 2. Environment Variables
 
-## 🛠️ Kurulum
+`.env` dosyasını oluşturun:
 
-1. **Projeyi klonlayın:**
 ```bash
-git clone <repository-url>
-cd whatsapp-bot
+# WhatsApp Cloud API
+WHATSAPP_TOKEN=your_whatsapp_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_VERIFY_TOKEN=your_verify_token
+
+# Firebase Admin SDK
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+FIREBASE_PRIVATE_KEY=your_firebase_private_key
+
+# Google Generative AI (Gemini)
+GEMINI_API_KEY=your_gemini_api_key
+
+# Google Cloud (Imagen 2)
+GOOGLE_CLOUD_PROJECT_ID=your_google_cloud_project_id
+
+# Session Management
+SESSION_SECRET=your_session_secret
+
+# Server Configuration
+PORT=3000
 ```
 
-2. **Bağımlılıkları yükleyin:**
+### 3. Google Cloud Setup (Imagen 2)
+
+1. Google Cloud Console'da yeni bir proje oluşturun
+2. Vertex AI API'yi etkinleştirin
+3. Service Account oluşturun ve gerekli izinleri verin
+4. `gcloud auth application-default login` komutunu çalıştırın
+
+### 4. Dependencies
+
 ```bash
 npm install
 ```
 
-3. **Environment dosyasını oluşturun:**
+### 5. Çalıştırma
+
 ```bash
-cp env.example .env
-```
-
-4. **Environment variables'ları doldurun:**
-```env
-# Server Configuration
-PORT=3000
-NODE_ENV=development
-
-# Firebase Configuration
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL=your-client-email
-
-# 360dialog WhatsApp Business API Configuration
-WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
-WHATSAPP_ACCESS_TOKEN=your-360dialog-api-key
-WHATSAPP_VERIFY_TOKEN=your-verify-token
-
-# Runway ML API Configuration
-RUNWAY_API_KEY=your-runway-api-key
-
-# Security
-SESSION_SECRET=your-session-secret-key
-```
-
-5. **Uygulamayı başlatın:**
-```bash
-# Development
-npm run dev
-
-# Production
 npm start
 ```
 
-## 🔧 Konfigürasyon
+## API Endpoints
 
-### Environment Variables
-
-| Değişken | Açıklama | Varsayılan |
-|----------|----------|------------|
-| `PORT` | Sunucu portu | 3000 |
-| `NODE_ENV` | Ortam (development/production) | development |
-| `FIREBASE_PROJECT_ID` | Firebase proje ID'si | - |
-| `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp telefon numarası ID'si | - |
-| `WHATSAPP_ACCESS_TOKEN` | WhatsApp API access token | - |
-| `WHATSAPP_VERIFY_TOKEN` | Webhook doğrulama token'ı | - |
-| `SESSION_SECRET` | Session güvenlik anahtarı | - |
-| `RUNWAY_API_KEY` | Runway AI API anahtarı | - |
-
-### Güvenlik Ayarları
-
-```javascript
-// Rate limiting
-RATE_LIMIT_WINDOW_MS=900000  // 15 dakika
-RATE_LIMIT_MAX_REQUESTS=100  // Maksimum istek sayısı
-
-// Session timeout
-SESSION_TIMEOUT=600000       // 10 dakika
-MAX_ATTEMPTS=3              // Maksimum yanlış deneme
-```
-
-## 📱 Kullanım
-
-### Webhook Endpoints
-
+### Webhook
 - `GET /webhook` - WhatsApp webhook doğrulama
-- `POST /webhook` - Mesaj alma ve işleme
-- `GET /health` - Sistem durumu kontrolü
+- `POST /webhook` - WhatsApp mesajlarını işleme
 
-### Kullanıcı Komutları
+### Imagen 2
+- `POST /generate-image` - Resim oluşturma
+- `POST /edit-image` - Resim düzenleme
 
-- `merhaba` - Yeni kayıt başlat
-- `ai` - AI Fotoğraf Sihirbazını başlat
-- `yardım` - Yardım menüsü
-- `iptal` - Mevcut işlemi iptal et
+## Form Akışı
 
-### Kayıt Süreci
+1. Kullanıcı "selam" veya benzeri bir mesaj gönderir
+2. Gemini AI doğal bir şekilde adını sorar
+3. Kullanıcı adını verir, Gemini soyadını sorar
+4. Bu şekilde sırasıyla: e-posta, telefon, şehir bilgileri alınır
+5. Form tamamlandığında:
+   - Bilgiler Firebase'e kaydedilir
+   - Imagen 2 ile kullanıcıya özel profil resmi oluşturulur
+   - Resim WhatsApp'ta gönderilir
 
-1. **İsim** - Ad ve soyad
-2. **Telefon** - +90 ile başlayan numara
-3. **Email** - Geçerli e-posta adresi
-4. **Şehir** - Yaşadığı şehir
+## Imagen 2 Özellikleri
 
-### AI Fotoğraf Sihirbazı
+- **Resim Oluşturma**: Text-to-image generation
+- **Resim Düzenleme**: Mevcut resimleri düzenleme
+- **Inpainting**: Belirli alanları düzenleme
+- **Arka Plan Kaldırma**: Otomatik arka plan kaldırma
+- **Aspect Ratio**: 1:1, 9:16, 16:9, 3:4, 4:3 oranları
+- **Guidance Scale**: Düşük, orta, yüksek kontrol seviyeleri
 
-1. **"AI" yazın** - Sihirbazı başlatın
-2. **Kendi fotoğrafınızı gönderin** - Selfie veya portre
-3. **Arkadaşınızın fotoğrafını gönderin** - Portre fotoğrafı
-4. **Hayalinizi anlatın** - Örnek: "En yakın arkadaşımla Japonya'da geziyoruz"
-5. **AI görselinizi alın** - Otomatik olarak oluşturulur ve gönderilir
+## Deployment (Railway)
 
-## 🔒 Güvenlik Özellikleri
+1. Railway hesabı oluşturun
+2. GitHub repository'nizi bağlayın
+3. Environment variables'ları Railway'de ayarlayın
+4. Deploy edin
 
-### Webhook Doğrulama
-```javascript
-// WhatsApp API'den gelen isteklerin gerçekliğini doğrular
-const signature = req.headers['x-hub-signature-256'];
-const expectedSignature = crypto.createHmac('sha256', verifyToken)
-  .update(body)
-  .digest('hex');
-```
+## Hata Ayıklama
 
-### Input Sanitization
-```javascript
-// XSS ve injection koruması
-message.replace(/[<>]/g, '')  // HTML tag'leri temizle
-message.substring(0, 1000)    // Maksimum uzunluk
-```
+### Yaygın Hatalar
 
-### Rate Limiting
-```javascript
-// Spam koruması
-windowMs: 15 * 60 * 1000,  // 15 dakika
-max: 100                   // Maksimum 100 istek
-```
+1. **502 Bad Gateway**: Environment variables eksik
+2. **Firebase Permission Error**: Firestore kurallarını kontrol edin
+3. **WhatsApp Token Expired**: Token'ı yenileyin
+4. **Gemini API Overload**: Rate limiting aktif
 
-## 📊 Logging
-
-### Log Seviyeleri
-- `error` - Hatalar
-- `warn` - Uyarılar
-- `info` - Bilgi mesajları
-- `debug` - Debug bilgileri
-
-### Log Dosyaları
-- `logs/app.log` - Genel loglar
-- `logs/error.log` - Sadece hatalar
-
-### Özel Log Fonksiyonları
-```javascript
-logUserInteraction(phoneNumber, action, details)
-logSecurityEvent(event, details)
-logValidationError(phoneNumber, field, error, input)
-logSuccessfulRegistration(phoneNumber, userData)
-```
-
-## 🧪 Test
+### Log Kontrolü
 
 ```bash
-# Unit testler
-npm test
+# Railway logs
+railway logs
 
-# Linting
-npm run lint
-
-# Code formatting
-npm run format
+# Local logs
+npm start
 ```
 
-## 📈 Monitoring
+## Katkıda Bulunma
 
-### Health Check
-```bash
-curl http://localhost:3000/health
-```
-
-### Performance Metrics
-- Webhook işlem süresi
-- Session sayısı
-- Hata oranları
-- Kullanıcı etkileşimleri
-
-## 🚀 Production Deployment
-
-### Önerilen Ayarlar
-```env
-NODE_ENV=production
-PORT=3000
-LOG_LEVEL=warn
-RATE_LIMIT_MAX_REQUESTS=50
-```
-
-### Session Storage
-Production'da Redis kullanın:
-```javascript
-// Redis session storage
-const Redis = require('ioredis');
-const redis = new Redis(process.env.REDIS_URL);
-```
-
-### PM2 ile Deployment
-```bash
-npm install -g pm2
-pm2 start src/index.js --name whatsapp-bot
-pm2 save
-pm2 startup
-```
-
-## 🤝 Katkıda Bulunma
-
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit yapın (`git commit -m 'Add amazing feature'`)
-4. Push yapın (`git push origin feature/amazing-feature`)
+1. Fork edin
+2. Feature branch oluşturun
+3. Commit edin
+4. Push edin
 5. Pull Request oluşturun
 
-## 📝 Lisans
+## Lisans
 
-Bu proje MIT lisansı altında lisanslanmıştır.
-
-## 🆘 Destek
-
-Sorunlarınız için:
-- GitHub Issues kullanın
-- Dokümantasyonu kontrol edin
-- Log dosyalarını inceleyin
-
-## 🔄 Changelog
-
-### v2.0.0
-- ✅ Modüler yapı
-- ✅ Gelişmiş güvenlik
-- ✅ Kullanıcı dostu mesajlar
-- ✅ Kapsamlı logging
-- ✅ Environment variables
-- ✅ Error handling
-- ✅ Performance monitoring
-
-### v1.0.0
-- ✅ Temel webhook işleme
-- ✅ Firebase entegrasyonu
-- ✅ Basit validasyon # Force Railway redeploy - Wed Jul 16 15:20:40 +03 2025
+MIT License
